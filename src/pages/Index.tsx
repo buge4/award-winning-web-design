@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { AUCTIONS, PLATFORM_STATS } from '@/data/mockData';
+import { DRAW_HISTORY } from '@/data/drawHistory';
 import AuctionCard from '@/components/AuctionCard';
 import LiveTicker from '@/components/LiveTicker';
 import JackpotCounter from '@/components/JackpotCounter';
@@ -7,6 +9,9 @@ import KpiCard from '@/components/KpiCard';
 import heroBg from '@/assets/hero-bg.jpg';
 
 const Index = () => {
+  const latestDraw = DRAW_HISTORY.find(d => d.status === 'completed');
+  const winnersCount = latestDraw ? latestDraw.draws.filter(d => d.winner).length : 0;
+
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0">
       {/* HERO */}
@@ -56,12 +61,48 @@ const Index = () => {
           {/* Jackpot Counter */}
           <div className="mt-16">
             <JackpotCounter amount={125000} />
+            <Link
+              to="/auction/demo/draw"
+              className="inline-block mt-4 px-5 py-2 bg-secondary border border-border text-muted-foreground font-display font-semibold text-sm rounded-lg hover:text-foreground transition-colors"
+            >
+              🎲 Watch a Demo Draw
+            </Link>
           </div>
         </div>
       </div>
 
       {/* Live Ticker */}
       <LiveTicker />
+
+      {/* Latest Draw Result Mini-Card */}
+      {latestDraw && (
+        <div className="container py-4">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="bg-card border border-ice/20 rounded-lg p-5 flex flex-col sm:flex-row items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-3xl">🎲</span>
+              <div>
+                <div className="text-xs text-ice font-semibold uppercase tracking-wider">Latest Draw — Week {latestDraw.week}</div>
+                <div className="text-sm text-muted-foreground">
+                  {winnersCount} of 5 prizes claimed • <span className="font-mono text-pngwin-green font-bold">{latestDraw.totalDistributed.toLocaleString()}</span> distributed • <span className="font-mono text-pngwin-red">{latestDraw.totalRolled.toLocaleString()}</span> rolled
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Link to={`/draws/${latestDraw.week}`} className="px-3 py-1.5 text-xs text-ice hover:text-ice/80 font-semibold border border-ice/20 rounded-md transition-colors">
+                View Results →
+              </Link>
+              <Link to={`/draws/${latestDraw.week}/replay`} className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors">
+                🎬 Replay
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Platform KPIs */}
       <div className="container py-10">
@@ -160,11 +201,10 @@ const Index = () => {
                 </div>
               ))}
             </div>
-            <button className="px-5 py-2 bg-ice-subtle border border-ice text-ice rounded-md font-display font-semibold text-sm hover:bg-ice/20 transition-colors">
+            <Link to="/social" className="px-5 py-2 bg-ice-subtle border border-ice text-ice rounded-md font-display font-semibold text-sm hover:bg-ice/20 transition-colors">
               View My Circle →
-            </button>
+            </Link>
           </div>
-          {/* Circle visualization */}
           <div className="w-48 h-48 relative shrink-0">
             <div className="absolute inset-0 rounded-full border border-pngwin-purple/20" />
             <div className="absolute inset-[15%] rounded-full border border-ice/25" />

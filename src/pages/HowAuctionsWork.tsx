@@ -79,13 +79,21 @@ const HowAuctionsWork = () => (
         ))}
       </div>
 
-      <div className="text-center">
+      <div className="text-center space-y-3">
         <Link
           to="/auctions"
           className="inline-block px-8 py-3.5 gradient-gold text-primary-foreground font-display font-bold text-base tracking-wider rounded-lg shadow-gold"
         >
           Start Bidding →
         </Link>
+        <div>
+          <Link
+            to="/auction/demo/draw"
+            className="inline-block px-5 py-2 bg-secondary border border-border text-muted-foreground font-display font-semibold text-sm rounded-lg hover:text-foreground transition-colors"
+          >
+            🎲 See the RNG Draw in Action →
+          </Link>
+        </div>
       </div>
     </div>
   </div>

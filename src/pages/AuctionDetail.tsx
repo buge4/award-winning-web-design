@@ -84,12 +84,20 @@ const AuctionDetail = () => {
             </div>
           </div>
           {isJackpotRng && auction.timeRemaining && (
-            <Link
-              to={`/auction/${id}/draw`}
-              className="px-5 py-2.5 gradient-ice text-background font-display font-bold text-sm tracking-wider rounded-lg shadow-ice hover:opacity-90 transition-opacity"
-            >
-              🎲 Watch Draw →
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                to="/auction/demo/draw"
+                className="px-4 py-2 bg-secondary border border-border text-muted-foreground font-display font-semibold text-sm rounded-lg hover:text-foreground transition-colors"
+              >
+                👀 Preview Draw
+              </Link>
+              <Link
+                to={`/auction/${id}/draw`}
+                className="px-5 py-2.5 gradient-ice text-background font-display font-bold text-sm tracking-wider rounded-lg shadow-ice hover:opacity-90 transition-opacity"
+              >
+                🎲 Watch Draw →
+              </Link>
+            </div>
           )}
         </div>
 
