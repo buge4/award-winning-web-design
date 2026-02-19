@@ -3,6 +3,15 @@ import { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import slide1Img from '@/assets/social/slide1-hook.jpg';
+import slide2Img from '@/assets/social/slide2-foundation.jpg';
+import slide3Img from '@/assets/social/slide3-duplication.jpg';
+import slide4Img from '@/assets/social/slide4-reward.jpg';
+import slide5Img from '@/assets/social/slide5-jackpot.jpg';
+import slide6Img from '@/assets/social/slide6-tiers.jpg';
+import slide7Img from '@/assets/social/slide7-power.jpg';
+import slide8Img from '@/assets/social/slide8-cta.jpg';
+
 /* ─── Animated counter hook ─── */
 const useCounter = (target: number, inView: boolean, duration = 1500) => {
   const [count, setCount] = useState(0);
@@ -20,82 +29,18 @@ const useCounter = (target: number, inView: boolean, duration = 1500) => {
   return count;
 };
 
-/* ─── Concentric Rings Visualization ─── */
-const ConcentricRings = ({ active = 5, showDots = false, showGrowth = false }: { active?: number; showDots?: boolean; showGrowth?: boolean }) => {
-  const ringColors = [
-    'border-pngwin-green/60',
-    'border-ice/50',
-    'border-ice/40',
-    'border-pngwin-purple/35',
-    'border-pngwin-purple/25',
-  ];
-  const ringGlow = [
-    'shadow-[0_0_15px_hsla(152,100%,45%,0.15)]',
-    'shadow-[0_0_15px_hsla(192,100%,50%,0.12)]',
-    'shadow-[0_0_15px_hsla(192,100%,50%,0.1)]',
-    'shadow-[0_0_15px_hsla(270,91%,65%,0.1)]',
-    'shadow-[0_0_15px_hsla(270,91%,65%,0.08)]',
-  ];
-  const dotCounts = showGrowth ? [5, 25, 125, 625, 3125] : [8, 5, 4, 3, 2];
-
-  return (
-    <div className="relative w-64 h-64 md:w-80 md:h-80 mx-auto">
-      {[0, 1, 2, 3, 4].map(i => {
-        const inset = `${52 - i * 10}%`;
-        return (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={i < active ? { opacity: 1, scale: 1 } : { opacity: 0.2, scale: 0.95 }}
-            transition={{ delay: i * 0.15, duration: 0.5 }}
-            className={`absolute rounded-full border-2 ${ringColors[i]} ${i < active ? ringGlow[i] : ''}`}
-            style={{ inset }}
-          />
-        );
-      })}
-
-      {/* Center */}
-      <div className="absolute inset-[52%] rounded-full flex items-center justify-center">
-        <div className="w-10 h-10 rounded-full gradient-gold flex items-center justify-center text-sm font-bold text-background shadow-gold">
-          YOU
-        </div>
-      </div>
-
-      {/* Dots */}
-      {showDots && [0, 1, 2, 3, 4].filter(i => i < active).map(ring => {
-        const count = Math.min(dotCounts[ring], 12);
-        const radius = 38 + ring * 18;
-        return Array.from({ length: count }).map((_, j) => {
-          const angle = (j / count) * 2 * Math.PI - Math.PI / 2;
-          const x = 50 + radius * Math.cos(angle) / 1.6;
-          const y = 50 + radius * Math.sin(angle) / 1.6;
-          return (
-            <motion.div
-              key={`${ring}-${j}`}
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: ring * 0.2 + j * 0.05, duration: 0.3 }}
-              className={`absolute w-2.5 h-2.5 rounded-full ${
-                ring === 0 ? 'bg-pngwin-green' : ring <= 2 ? 'bg-ice' : 'bg-pngwin-purple'
-              }`}
-              style={{ left: `${x}%`, top: `${y}%` }}
-            />
-          );
-        });
-      })}
-
-      {/* Pulse animation */}
-      {[0, 1, 2].map(i => (
-        <motion.div
-          key={`pulse-${i}`}
-          className="absolute inset-[40%] rounded-full border border-primary/20"
-          animate={{ scale: [1, 2.5], opacity: [0.4, 0] }}
-          transition={{ duration: 3, repeat: Infinity, delay: i * 1, ease: 'easeOut' }}
-        />
-      ))}
-    </div>
-  );
-};
+/* ─── Panel image component ─── */
+const PanelImage = ({ src, alt }: { src: string; alt: string }) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.95 }}
+    whileInView={{ opacity: 1, scale: 1 }}
+    viewport={{ once: true }}
+    transition={{ duration: 0.6 }}
+    className="w-full rounded-2xl overflow-hidden border border-border/30 shadow-2xl"
+  >
+    <img src={src} alt={alt} className="w-full h-auto object-cover" loading="lazy" />
+  </motion.div>
+);
 
 /* ─── Section wrapper with scroll detection ─── */
 const Section = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => {
@@ -157,7 +102,7 @@ const HowSocialCircleWorks = () => {
               Build your circle. When they win, you win. It's that simple.
             </p>
           </motion.div>
-          <ConcentricRings active={5} showDots />
+          <PanelImage src={slide1Img} alt="Social Circle network visualization with concentric rings" />
         </div>
       </Section>
 
@@ -183,33 +128,7 @@ const HowSocialCircleWorks = () => {
             </div>
           </div>
 
-          {/* Animated first circle with numbered referrals */}
-          <div className="relative w-72 h-72 md:w-96 md:h-96 mx-auto">
-            <div className="absolute inset-[30%] rounded-full border-2 border-pngwin-green/40" />
-            <div className="absolute inset-[30%] rounded-full flex items-center justify-center">
-              <div className="w-12 h-12 rounded-full gradient-gold flex items-center justify-center text-sm font-bold text-background shadow-gold">YOU</div>
-            </div>
-            {Array.from({ length: 10 }).map((_, i) => {
-              const angle = (i / 10) * 2 * Math.PI - Math.PI / 2;
-              const x = 50 + 35 * Math.cos(angle);
-              const y = 50 + 35 * Math.sin(angle);
-              return (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, scale: 0 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.12, duration: 0.4 }}
-                  className="absolute flex flex-col items-center"
-                  style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
-                >
-                  <div className="w-8 h-8 rounded-full bg-pngwin-green/20 border border-pngwin-green/40 flex items-center justify-center text-xs font-bold text-pngwin-green">
-                    {i + 1}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
+          <PanelImage src={slide2Img} alt="First circle with numbered referrals around you" />
         </div>
       </Section>
 
@@ -226,7 +145,7 @@ const HowSocialCircleWorks = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <ConcentricRings active={5} showDots showGrowth />
+          <PanelImage src={slide3Img} alt="Exponential network growth visualization" />
 
           <div className="space-y-3">
             <div className="text-sm text-muted-foreground mb-4">If everyone invites just 5 people:</div>
@@ -276,8 +195,10 @@ const HowSocialCircleWorks = () => {
           </p>
         </div>
 
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-card border border-border rounded-xl p-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center max-w-4xl mx-auto">
+          <PanelImage src={slide4Img} alt="Prize pool splitting into 5 reward levels" />
+          
+          <div className="bg-card border border-border rounded-xl p-6">
             <div className="text-center mb-6">
               <div className="text-sm text-muted-foreground">Prize Pool Example</div>
               <div className="font-mono text-4xl font-bold text-primary">100,000 PNGWIN</div>
@@ -320,58 +241,62 @@ const HowSocialCircleWorks = () => {
             When Your Circle Wins <span className="text-primary">BIG</span>
           </h2>
 
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-card border border-gold/20 rounded-xl p-8 glow-gold mb-8">
-              <div className="text-4xl mb-4">🏆</div>
-              <div className="text-sm text-muted-foreground mb-1">@MoonShot (in your 3rd circle) wins the MEGA JACKPOT</div>
-              <div className="font-mono text-5xl md:text-6xl font-bold text-primary mb-4">
-                {megaJackpot.toLocaleString()} <span className="text-2xl">PNGWIN</span>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                10% Social Circle Bonus = <span className="font-mono font-bold text-pngwin-green">{megaBonus.toLocaleString()} PNGWIN</span>
-              </div>
-            </div>
+          <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            <PanelImage src={slide5Img} alt="Massive jackpot win celebration with trophy and coins" />
 
-            <div className="space-y-2 mb-8">
-              {[
-                { level: 1, who: 'Who referred @MoonShot', amount: 20000 },
-                { level: 2, who: 'Level 2 upline', amount: 20000 },
-                { level: 3, who: "That's YOU! 🎉", amount: 20000, highlight: true },
-                { level: 4, who: 'Level 4 upline', amount: 20000 },
-                { level: 5, who: 'Level 5 upline', amount: 20000 },
-              ].map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 10 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className={`flex items-center justify-between px-5 py-3 rounded-lg border ${
-                    item.highlight
-                      ? 'border-gold/40 bg-gold-subtle glow-gold'
-                      : 'border-border bg-card'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">Level {item.level}</span>
-                    <span className={`text-sm ${item.highlight ? 'font-bold text-primary' : ''}`}>{item.who}</span>
-                  </div>
-                  <span className="font-mono text-sm font-bold text-pngwin-green">+{item.amount.toLocaleString()} PNGWIN</span>
-                </motion.div>
-              ))}
-            </div>
+            <div>
+              <div className="bg-card border border-gold/20 rounded-xl p-8 glow-gold mb-6">
+                <div className="text-4xl mb-4">🏆</div>
+                <div className="text-sm text-muted-foreground mb-1">@MoonShot (in your 3rd circle) wins the MEGA JACKPOT</div>
+                <div className="font-mono text-4xl md:text-5xl font-bold text-primary mb-4">
+                  {megaJackpot.toLocaleString()} <span className="text-xl">PNGWIN</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  10% Social Circle Bonus = <span className="font-mono font-bold text-pngwin-green">{megaBonus.toLocaleString()} PNGWIN</span>
+                </div>
+              </div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.5 }}
-              className="bg-gold-subtle border border-gold rounded-xl p-6 glow-gold"
-            >
-              <div className="text-sm text-muted-foreground mb-1">You just earned</div>
-              <div className="font-mono text-4xl font-bold text-primary">{megaYou.toLocaleString()} PNGWIN</div>
-              <div className="text-sm text-muted-foreground mt-1">because someone 3 levels deep in your network won! 🎉</div>
-            </motion.div>
+              <div className="space-y-2 mb-6">
+                {[
+                  { level: 1, who: 'Who referred @MoonShot', amount: 20000 },
+                  { level: 2, who: 'Level 2 upline', amount: 20000 },
+                  { level: 3, who: "That's YOU! 🎉", amount: 20000, highlight: true },
+                  { level: 4, who: 'Level 4 upline', amount: 20000 },
+                  { level: 5, who: 'Level 5 upline', amount: 20000 },
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                    className={`flex items-center justify-between px-4 py-2.5 rounded-lg border text-sm ${
+                      item.highlight
+                        ? 'border-gold/40 bg-gold-subtle glow-gold'
+                        : 'border-border bg-card'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">L{item.level}</span>
+                      <span className={item.highlight ? 'font-bold text-primary' : ''}>{item.who}</span>
+                    </div>
+                    <span className="font-mono font-bold text-pngwin-green">+{item.amount.toLocaleString()}</span>
+                  </motion.div>
+                ))}
+              </div>
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.5 }}
+                className="bg-gold-subtle border border-gold rounded-xl p-5 glow-gold"
+              >
+                <div className="text-sm text-muted-foreground mb-1">You just earned</div>
+                <div className="font-mono text-3xl font-bold text-primary">{megaYou.toLocaleString()} PNGWIN</div>
+                <div className="text-sm text-muted-foreground mt-1">because someone 3 levels deep won! 🎉</div>
+              </motion.div>
+            </div>
           </div>
         </div>
       </Section>
@@ -388,39 +313,43 @@ const HowSocialCircleWorks = () => {
           </p>
         </div>
 
-        <div className="max-w-2xl mx-auto space-y-3">
-          {[
-            { tier: 'Tier 1', req: 'Place 1+ bid this round', unlock: 'Circle 1 rewards', pct: 25, color: 'text-muted-foreground' },
-            { tier: 'Tier 2', req: 'Place 5+ bids this week', unlock: 'Circle 1-2 rewards', pct: 50, color: 'text-pngwin-green' },
-            { tier: 'Tier 3', req: '3+ active circle members', unlock: 'Circle 1-3 rewards', pct: 75, color: 'text-ice' },
-            { tier: 'Tier 4', req: '10+ active circle members', unlock: 'ALL 5 circles', pct: 100, color: 'text-primary' },
-          ].map((item, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className="bg-card border border-border rounded-lg p-5"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <span className={`font-display font-bold text-sm ${item.color}`}>{item.tier}</span>
-                  <span className="text-xs text-muted-foreground">{item.req}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center max-w-4xl mx-auto">
+          <div className="space-y-3">
+            {[
+              { tier: 'Tier 1', req: 'Place 1+ bid this round', unlock: 'Circle 1 rewards', pct: 25, color: 'text-muted-foreground' },
+              { tier: 'Tier 2', req: 'Place 5+ bids this week', unlock: 'Circle 1-2 rewards', pct: 50, color: 'text-pngwin-green' },
+              { tier: 'Tier 3', req: '3+ active circle members', unlock: 'Circle 1-3 rewards', pct: 75, color: 'text-ice' },
+              { tier: 'Tier 4', req: '10+ active circle members', unlock: 'ALL 5 circles', pct: 100, color: 'text-primary' },
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="bg-card border border-border rounded-lg p-5"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <span className={`font-display font-bold text-sm ${item.color}`}>{item.tier}</span>
+                    <span className="text-xs text-muted-foreground">{item.req}</span>
+                  </div>
+                  <span className="text-xs font-semibold text-primary">{item.unlock} ({item.pct}%)</span>
                 </div>
-                <span className="text-xs font-semibold text-primary">{item.unlock} ({item.pct}%)</span>
-              </div>
-              <div className="h-2 bg-border rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-gold-dim to-gold"
-                  initial={{ width: 0 }}
-                  whileInView={{ width: `${item.pct}%` }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.8, delay: i * 0.1 }}
-                />
-              </div>
-            </motion.div>
-          ))}
+                <div className="h-2 bg-border rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-gold-dim to-gold"
+                    initial={{ width: 0 }}
+                    whileInView={{ width: `${item.pct}%` }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.8, delay: i * 0.1 }}
+                  />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <PanelImage src={slide6Img} alt="Tier unlock progression system" />
         </div>
       </Section>
 
@@ -433,7 +362,11 @@ const HowSocialCircleWorks = () => {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-12">
+        <div className="max-w-4xl mx-auto mb-10">
+          <PanelImage src={slide7Img} alt="Solo player vs networked player comparison" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="text-pngwin-red text-3xl mb-3">😐</div>
             <h3 className="font-display font-bold text-lg mb-2">Without Social Circle</h3>
@@ -463,6 +396,10 @@ const HowSocialCircleWorks = () => {
           <h2 className="font-display text-3xl md:text-5xl font-bold mb-8">
             Start Building Your Circle <span className="text-primary">Today</span>
           </h2>
+
+          <div className="max-w-2xl mx-auto mb-10">
+            <PanelImage src={slide8Img} alt="Share your referral link across social platforms" />
+          </div>
 
           {/* Referral Link */}
           <div className="max-w-md mx-auto mb-8">
