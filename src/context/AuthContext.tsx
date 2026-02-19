@@ -46,6 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         p_user_id: data.user.id,
         p_username: email.split('@')[0],
         p_referral_code_used: referralCode || null,
+        p_project_slug: 'auction',
       });
       if (rpcError) {
         console.error('[AuthContext] complete_signup RPC error:', rpcError);

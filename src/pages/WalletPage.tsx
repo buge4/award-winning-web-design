@@ -53,6 +53,7 @@ const WalletPage = () => {
       .from('wallets')
       .select('balance')
       .eq('user_id', user.id)
+      .eq('project_slug', 'auction')
       .single()
       .then(({ data }) => {
         if (data) setBalance(data.balance);
