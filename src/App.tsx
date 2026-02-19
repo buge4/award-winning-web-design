@@ -24,6 +24,7 @@ import HowPvpWorks from "./pages/HowPvpWorks";
 import HowTournamentsWork from "./pages/HowTournamentsWork";
 import DrawHistoryPage from "./pages/DrawHistoryPage";
 import DrawDetailPage from "./pages/DrawDetailPage";
+import HowSocialCircleWorks from "./pages/HowSocialCircleWorks";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,7 @@ const App = () => (
           <Route path="/tournaments/how-it-works" element={<HowTournamentsWork />} />
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/social" element={<SocialCirclePage />} />
+          <Route path="/social/how-it-works" element={<HowSocialCircleWorks />} />
           <Route path="/badges" element={<BadgesPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/settings" element={<SettingsPage />} />

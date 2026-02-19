@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import KpiCard from '@/components/KpiCard';
 import { toast } from 'sonner';
+
+const CIRCLE_DATA = [
+  { level: 1, label: 'Circle 1', members: 8, active: 5, color: 'bg-pngwin-green', textColor: 'text-pngwin-green', borderColor: 'border-pngwin-green/30', bonus: '2%' },
+  { level: 2, label: 'Circle 2', members: 3, active: 2, color: 'bg-ice', textColor: 'text-ice', borderColor: 'border-ice/30', bonus: '2%' },
+  { level: 3, label: 'Circle 3', members: 2, active: 1, color: 'bg-ice', textColor: 'text-ice', borderColor: 'border-ice/30', bonus: '2%' },
+  { level: 4, label: 'Circle 4', members: 1, active: 0, color: 'bg-pngwin-purple', textColor: 'text-pngwin-purple', borderColor: 'border-pngwin-purple/30', bonus: '2%' },
+  { level: 5, label: 'Circle 5', members: 0, active: 0, color: 'bg-pngwin-purple', textColor: 'text-pngwin-purple', borderColor: 'border-pngwin-purple/30', bonus: '2%' },
+];
 
 const TIERS = [
   { name: 'Egg', min: 0, color: 'text-muted-foreground', bonus: '1x' },
@@ -19,6 +28,9 @@ const REFERRAL_EARNINGS = [
   { user: '@SnowDrift', level: 2, earned: 12, event: 'PvP Duel win' },
 ];
 
+const totalMembers = CIRCLE_DATA.reduce((a, c) => a + c.members, 0);
+const totalActive = CIRCLE_DATA.reduce((a, c) => a + c.active, 0);
+
 const SocialCirclePage = () => {
   const [copied, setCopied] = useState(false);
   const referralLink = 'https://pngwin.io/ref/cryptoking';
@@ -33,75 +45,126 @@ const SocialCirclePage = () => {
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0">
       <div className="container py-8">
-        <h1 className="font-display text-3xl font-bold mb-6">🐧 Social Circle</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="font-display text-3xl font-bold">🐧 Social Circle</h1>
+          <Link to="/social/how-it-works" className="px-4 py-2 bg-secondary border border-border rounded-lg text-sm text-muted-foreground hover:text-foreground font-display font-semibold transition-colors">
+            How it works →
+          </Link>
+        </div>
 
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-          <KpiCard label="Circle Size" value={14} color="ice" />
-          <KpiCard label="Active This Week" value={8} color="green" />
+          <KpiCard label="Total Members" value={totalMembers} color="ice" />
+          <KpiCard label="Active This Week" value={totalActive} color="green" />
           <KpiCard label="Total Earned" value="2,340" color="gold" />
           <KpiCard label="Missed Bonuses" value="180" color="red" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Circle Visualization */}
-          <div className="lg:col-span-1">
+          {/* Left: Interactive Circle Visualization */}
+          <div className="lg:col-span-1 space-y-5">
+            {/* Visualization */}
             <div className="bg-card border border-border rounded-xl p-6">
               <h3 className="font-display font-bold text-sm mb-4 text-center">Your Colony</h3>
               <div className="w-56 h-56 mx-auto relative">
                 {/* Concentric rings */}
-                <div className="absolute inset-0 rounded-full border border-pngwin-purple/15" />
-                <div className="absolute inset-[12%] rounded-full border border-pngwin-purple/20" />
-                <div className="absolute inset-[24%] rounded-full border border-ice/25" />
-                <div className="absolute inset-[36%] rounded-full border border-ice/35" />
-                <div className="absolute inset-[48%] rounded-full border border-pngwin-green/40" />
-                <div className="absolute inset-[48%] rounded-full flex items-center justify-center text-3xl">🐧</div>
-                {/* Level labels */}
-                <div className="absolute -right-2 top-[48%] text-[9px] text-pngwin-green font-semibold">L1</div>
-                <div className="absolute -right-2 top-[36%] text-[9px] text-ice font-semibold">L2</div>
-                <div className="absolute -right-2 top-[24%] text-[9px] text-ice font-semibold">L3</div>
-                <div className="absolute -right-2 top-[12%] text-[9px] text-pngwin-purple font-semibold">L4</div>
-                <div className="absolute -right-2 top-0 text-[9px] text-pngwin-purple font-semibold">L5</div>
-                {/* People dots */}
-                <div className="absolute top-[42%] left-[25%] text-sm">👤</div>
-                <div className="absolute top-[52%] left-[70%] text-sm">👤</div>
-                <div className="absolute top-[38%] left-[62%] text-sm">👤</div>
-                <div className="absolute top-[58%] left-[30%] text-sm">👤</div>
-                <div className="absolute top-[28%] left-[45%] text-xs opacity-75">👤</div>
-                <div className="absolute top-[68%] left-[55%] text-xs opacity-75">👤</div>
-                <div className="absolute top-[18%] left-[35%] text-xs opacity-50">👤</div>
-                <div className="absolute top-[22%] left-[60%] text-xs opacity-50">👤</div>
+                {CIRCLE_DATA.map((c, i) => {
+                  const inset = `${48 - i * 10}%`;
+                  const hasMembers = c.members > 0;
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.1 }}
+                      className={`absolute rounded-full border-2 ${hasMembers ? c.borderColor : 'border-border/30'} ${hasMembers ? '' : 'opacity-30'}`}
+                      style={{ inset }}
+                    />
+                  );
+                })}
+                {/* Center */}
+                <div className="absolute inset-[48%] rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full gradient-gold flex items-center justify-center text-[10px] font-bold text-background shadow-gold">YOU</div>
+                </div>
+                {/* Dots for each circle member */}
+                {CIRCLE_DATA.map((c, ring) => {
+                  if (c.members === 0) return null;
+                  const count = Math.min(c.members, 8);
+                  const radius = 26 + ring * 14;
+                  return Array.from({ length: count }).map((_, j) => {
+                    const angle = (j / count) * 2 * Math.PI - Math.PI / 2 + ring * 0.3;
+                    const x = 50 + radius * Math.cos(angle) / 1.1;
+                    const y = 50 + radius * Math.sin(angle) / 1.1;
+                    const isActive = j < c.active;
+                    return (
+                      <motion.div
+                        key={`${ring}-${j}`}
+                        initial={{ opacity: 0, scale: 0 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: ring * 0.15 + j * 0.05 }}
+                        className={`absolute w-2 h-2 rounded-full ${isActive ? c.color : 'bg-muted-foreground/30'}`}
+                        style={{ left: `${x}%`, top: `${y}%` }}
+                        title={isActive ? 'Active' : 'Inactive'}
+                      />
+                    );
+                  });
+                })}
+                {/* Pulse */}
+                {[0, 1].map(i => (
+                  <motion.div
+                    key={`p-${i}`}
+                    className="absolute inset-[42%] rounded-full border border-primary/15"
+                    animate={{ scale: [1, 2], opacity: [0.3, 0] }}
+                    transition={{ duration: 3, repeat: Infinity, delay: i * 1.5 }}
+                  />
+                ))}
               </div>
 
-              {/* Level bonuses */}
-              <div className="flex justify-between mt-6 text-center">
-                {[
-                  { l: 'L1', pct: '8%', c: 'text-pngwin-green' },
-                  { l: 'L2', pct: '5%', c: 'text-ice' },
-                  { l: 'L3', pct: '3%', c: 'text-ice' },
-                  { l: 'L4', pct: '2%', c: 'text-pngwin-purple' },
-                  { l: 'L5', pct: '2%', c: 'text-pngwin-purple' },
-                ].map((item, i) => (
-                  <div key={i}>
-                    <div className="text-[9px] text-muted-foreground">{item.l}</div>
-                    <div className={`font-mono text-sm font-bold ${item.c}`}>{item.pct}</div>
+              {/* Level legend */}
+              <div className="flex justify-between mt-5">
+                {CIRCLE_DATA.map((c, i) => (
+                  <div key={i} className="text-center">
+                    <div className="text-[8px] text-muted-foreground">L{c.level}</div>
+                    <div className={`font-mono text-xs font-bold ${c.textColor}`}>{c.bonus}</div>
                   </div>
                 ))}
               </div>
             </div>
+
+            {/* Level Breakdown */}
+            <div className="bg-card border border-border rounded-xl p-5">
+              <h3 className="font-display font-bold text-sm mb-3">Circle Breakdown</h3>
+              <div className="space-y-2">
+                {CIRCLE_DATA.map((c, i) => (
+                  <div key={i} className={`flex items-center justify-between px-3 py-2.5 rounded-lg border ${c.members > 0 ? c.borderColor + ' bg-card' : 'border-border/30 bg-muted/20 opacity-50'}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2.5 h-2.5 rounded-full ${c.members > 0 ? c.color : 'bg-muted-foreground/30'}`} />
+                      <span className="text-xs font-semibold">{c.label}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="text-muted-foreground">{c.active}/{c.members} active</span>
+                      <span className={`font-mono font-bold ${c.textColor}`}>{c.members}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Total</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">{totalActive}/{totalMembers} active</span>
+                  <span className="font-mono font-bold text-primary">{totalMembers}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Referral + Earnings */}
+          {/* Right column */}
           <div className="lg:col-span-2 space-y-5">
             {/* Referral Link */}
             <div className="bg-card border border-border rounded-lg p-5">
               <h3 className="font-display font-bold text-sm mb-3">Your Referral Link</h3>
               <div className="flex gap-2 mb-3">
-                <input
-                  readOnly
-                  value={referralLink}
-                  className="flex-1 px-3 py-2 bg-background border border-border rounded-md font-mono text-xs text-muted-foreground"
-                />
+                <input readOnly value={referralLink} className="flex-1 px-3 py-2 bg-background border border-border rounded-md font-mono text-xs text-muted-foreground" />
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={handleCopy}
@@ -111,10 +174,8 @@ const SocialCirclePage = () => {
                 </motion.button>
               </div>
               <div className="flex gap-2">
-                {['Telegram', 'WhatsApp', 'Twitter'].map(platform => (
-                  <button key={platform} className="px-3 py-1.5 bg-secondary border border-border rounded-md text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    {platform}
-                  </button>
+                {['Telegram', 'WhatsApp', 'Twitter'].map(p => (
+                  <button key={p} className="px-3 py-1.5 bg-secondary border border-border rounded-md text-xs text-muted-foreground hover:text-foreground transition-colors">{p}</button>
                 ))}
               </div>
             </div>
@@ -125,16 +186,35 @@ const SocialCirclePage = () => {
               <div className="flex items-center gap-2 mb-3">
                 {TIERS.map((tier, i) => (
                   <div key={i} className={`flex-1 text-center py-2 rounded text-[10px] font-semibold ${
-                    14 >= tier.min ? `${tier.color} bg-gold-subtle` : 'text-muted-foreground bg-muted'
+                    totalMembers >= tier.min ? `${tier.color} bg-gold-subtle` : 'text-muted-foreground bg-muted'
                   }`}>
                     {tier.name}
                   </div>
                 ))}
               </div>
               <div className="h-2 bg-border rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-gold-dim to-gold" style={{ width: `${(14 / 25) * 100}%` }} />
+                <div className="h-full rounded-full bg-gradient-to-r from-gold-dim to-gold" style={{ width: `${Math.min((totalMembers / 25) * 100, 100)}%` }} />
               </div>
-              <div className="text-xs text-muted-foreground mt-2">14/25 referrals to Colony tier (2x bonus multiplier)</div>
+              <div className="text-xs text-muted-foreground mt-2">{totalMembers}/25 referrals to Colony tier (2x bonus multiplier)</div>
+            </div>
+
+            {/* Activity This Week */}
+            <div className="bg-card border border-border rounded-lg p-5">
+              <h3 className="font-display font-bold text-sm mb-3">Activity This Week</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-background rounded-lg p-3 text-center">
+                  <div className="font-mono text-xl font-bold text-ice">{totalActive}</div>
+                  <div className="text-[10px] text-muted-foreground">Active Members</div>
+                </div>
+                <div className="bg-background rounded-lg p-3 text-center">
+                  <div className="font-mono text-xl font-bold text-pngwin-green">47</div>
+                  <div className="text-[10px] text-muted-foreground">Bids By Circle</div>
+                </div>
+                <div className="bg-background rounded-lg p-3 text-center">
+                  <div className="font-mono text-xl font-bold text-primary">331</div>
+                  <div className="text-[10px] text-muted-foreground">Earned (PNGWIN)</div>
+                </div>
+              </div>
             </div>
 
             {/* Earnings Table */}
@@ -153,16 +233,6 @@ const SocialCirclePage = () => {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* How Bonuses Work */}
-        <div className="bg-card border border-border rounded-lg p-6 mt-8">
-          <h3 className="font-semibold mb-3">How Social Circle Bonuses Work</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-muted-foreground">
-            <div><span className="font-semibold text-foreground">Automatic:</span> When anyone in your circle wins a prize, you earn a bonus % based on their level in your network.</div>
-            <div><span className="font-semibold text-foreground">5 Levels Deep:</span> L1 = 8%, L2 = 5%, L3 = 3%, L4 = 2%, L5 = 2%. Total potential: 20% bonus.</div>
-            <div><span className="font-semibold text-foreground">Tier Multiplier:</span> Grow your circle to unlock tier bonuses that multiply all earnings. Emperor tier = 3x!</div>
           </div>
         </div>
       </div>
