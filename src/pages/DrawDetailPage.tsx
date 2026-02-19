@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { useParams, Link } from 'react-router-dom';
 import { DRAW_HISTORY } from '@/data/drawHistory';
+import SocialCircleBonusTable from '@/components/SocialCircleBonusTable';
+import { DRAW_SOCIAL_BONUSES } from '@/data/socialCircleMock';
 
 const DrawDetailPage = () => {
   const { weekNumber } = useParams();
@@ -102,6 +104,18 @@ const DrawDetailPage = () => {
                   )}
                 </div>
               </div>
+
+              {/* Social Circle Bonus — collapsible per winner */}
+              {d.winner && DRAW_SOCIAL_BONUSES[d.winner] && (
+                <div className="mt-2 ml-20 mr-4">
+                  <SocialCircleBonusTable
+                    winnerName={d.winner}
+                    prizeAmount={d.winAmount}
+                    entries={DRAW_SOCIAL_BONUSES[d.winner]}
+                    compact
+                  />
+                </div>
+              )}
             </motion.div>
           ))}
         </div>

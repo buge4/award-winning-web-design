@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { AUCTIONS, MY_BIDS } from '@/data/mockData';
 import BidInput from '@/components/BidInput';
 import KpiCard from '@/components/KpiCard';
+import SocialCircleWidget from '@/components/SocialCircleWidget';
 import { toast } from 'sonner';
 
 const AuctionDetail = () => {
@@ -246,6 +247,9 @@ const AuctionDetail = () => {
               <KpiCard label="Unique" value={auction.uniqueBids} color="green" />
               <KpiCard label="Burned" value={auction.burnedBids} color="red" />
             </div>
+
+            {/* Social Circle Widget */}
+            <SocialCircleWidget context="auction" />
           </div>
 
           {/* Right column */}
