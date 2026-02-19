@@ -5,8 +5,10 @@ import { motion } from 'framer-motion';
 const navLinks = [
   { path: '/', label: 'Lobby' },
   { path: '/auctions', label: 'Auctions' },
-  { path: '/pvp', label: 'PvP Duels' },
+  { path: '/pvp', label: 'PvP' },
+  { path: '/tournaments', label: 'Tournaments' },
   { path: '/leaderboard', label: 'Leaderboard' },
+  { path: '/admin', label: '🛡️' },
 ];
 
 const Navbar = () => {
