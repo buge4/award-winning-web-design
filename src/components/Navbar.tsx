@@ -9,6 +9,7 @@ const navLinks = [
   { path: '/pvp', label: 'PvP' },
   { path: '/tournaments', label: 'Tournaments' },
   { path: '/leaderboard', label: 'Leaderboard' },
+  { path: '/badges', label: 'Badges' },
   { path: '/admin', label: '🛡️' },
 ];
 

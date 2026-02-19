@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import KpiCard from '@/components/KpiCard';
 import { toast } from 'sonner';
+import { MISSED_BONUSES } from '@/data/socialCircleMock';
 
 const CIRCLE_DATA = [
   { level: 1, label: 'Circle 1', members: 8, active: 5, color: 'bg-pngwin-green', textColor: 'text-pngwin-green', borderColor: 'border-pngwin-green/30', bonus: '2%' },
@@ -30,9 +31,11 @@ const REFERRAL_EARNINGS = [
 
 const totalMembers = CIRCLE_DATA.reduce((a, c) => a + c.members, 0);
 const totalActive = CIRCLE_DATA.reduce((a, c) => a + c.active, 0);
+const totalMissed = MISSED_BONUSES.reduce((a, b) => a + b.missed, 0);
 
 const SocialCirclePage = () => {
   const [copied, setCopied] = useState(false);
+  const [showMissed, setShowMissed] = useState(false);
   const referralLink = 'https://pngwin.io/ref/cryptoking';
 
   const handleCopy = () => {
@@ -57,8 +60,54 @@ const SocialCirclePage = () => {
           <KpiCard label="Total Members" value={totalMembers} color="ice" />
           <KpiCard label="Active This Week" value={totalActive} color="green" />
           <KpiCard label="Total Earned" value="2,340" color="gold" />
-          <KpiCard label="Missed Bonuses" value="180" color="red" />
+          {/* Missed Bonuses — clickable */}
+          <div
+            className="bg-card border border-pngwin-red/20 rounded-lg p-3 text-center cursor-pointer hover:bg-card-hover transition-colors"
+            onClick={() => setShowMissed(!showMissed)}
+          >
+            <div className="font-mono text-xl font-bold text-pngwin-red">{totalMissed}</div>
+            <div className="text-[10px] text-muted-foreground">Missed Bonuses</div>
+            <div className="text-[9px] text-pngwin-red mt-0.5">{showMissed ? 'Hide details ▲' : 'Click for details ▼'}</div>
+          </div>
         </div>
+
+        {/* Missed Bonuses Expansion */}
+        <AnimatePresence>
+          {showMissed && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="overflow-hidden mb-6"
+            >
+              <div className="bg-card border border-pngwin-red/20 rounded-lg p-5">
+                <h3 className="font-display font-bold text-sm mb-1 text-pngwin-red">
+                  Missed Bonuses — {totalMissed} PNGWIN lost
+                </h3>
+                <p className="text-[10px] text-muted-foreground mb-4">Because you weren't active when your circle members won</p>
+                <div className="space-y-1.5">
+                  {MISSED_BONUSES.map((m, i) => (
+                    <div key={i} className="flex items-center justify-between px-3 py-2 bg-red-subtle rounded text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-muted-foreground shrink-0">{m.date}:</span>
+                        <span className="font-semibold text-ice truncate">{m.user}</span>
+                        <span className="text-muted-foreground truncate hidden sm:inline">{m.event}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono font-bold text-pngwin-red">-{m.missed} PNGWIN</span>
+                        <span className="text-[9px] text-muted-foreground">({m.reason})</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 p-2.5 bg-gold-subtle border border-gold rounded-lg text-center">
+                  <span className="text-xs">💡 <strong>TIP:</strong> Play at least 1 bid in every auction to never miss a bonus!</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Interactive Circle Visualization */}
@@ -86,7 +135,7 @@ const SocialCirclePage = () => {
                 <div className="absolute inset-[48%] rounded-full flex items-center justify-center">
                   <div className="w-8 h-8 rounded-full gradient-gold flex items-center justify-center text-[10px] font-bold text-background shadow-gold">YOU</div>
                 </div>
-                {/* Dots for each circle member */}
+                {/* Dots */}
                 {CIRCLE_DATA.map((c, ring) => {
                   if (c.members === 0) return null;
                   const count = Math.min(c.members, 8);
