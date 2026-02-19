@@ -36,13 +36,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string, referralCode?: string) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) return { error };
+    if (error) {
+      console.error('[AuthContext] supabase.auth.signUp error:', error);
+      return { error };
+    }
     if (data.user) {
-      await supabase.rpc('complete_signup', {
+      console.log('[AuthContext] signUp succeeded, calling complete_signup for user:', data.user.id);
+      const { error: rpcError } = await supabase.rpc('complete_signup', {
         p_user_id: data.user.id,
         p_username: email.split('@')[0],
         p_referral_code_used: referralCode || null,
       });
+      if (rpcError) {
+        console.error('[AuthContext] complete_signup RPC error:', rpcError);
+      } else {
+        console.log('[AuthContext] complete_signup RPC succeeded');
+      }
+    } else {
+      console.warn('[AuthContext] signUp returned no user object — email confirmation may be required');
     }
     return { error: null };
   };
