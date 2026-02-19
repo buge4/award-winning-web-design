@@ -1,46 +1,38 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { AUCTIONS, MY_BIDS } from '@/data/mockData';
+import { AUCTIONS } from '@/data/mockData';
 import BidInput from '@/components/BidInput';
 import KpiCard from '@/components/KpiCard';
 import SocialCircleWidget from '@/components/SocialCircleWidget';
 import { toast } from 'sonner';
+import { useMyBids, usePlaceBid } from '@/hooks/useAuctions';
+import { useAuth } from '@/context/AuthContext';
 
 const AuctionDetail = () => {
   const { id } = useParams();
+  const { user } = useAuth();
   const auction = AUCTIONS.find((a) => a.id === id) || AUCTIONS[0];
-  const [bids, setBids] = useState(MY_BIDS);
+  const { bids, refetch: refetchBids } = useMyBids(id);
+  const { placeBid } = usePlaceBid();
 
   const isJackpotRng = auction.type === 'rng';
   const isJackpotHuba = auction.type === 'jackpot';
 
-  const handleBid = (value: string) => {
-    const isUnique = Math.random() > 0.4;
-    const isBurnedByCollision = !isUnique && Math.random() > 0.5;
-    const newBid = {
-      id: String(bids.length + 1),
-      value,
-      status: isUnique ? ('unique' as const) : ('burned' as const),
-      position: isUnique ? Math.floor(Math.random() * 20) + 1 : undefined,
-      timestamp: 'just now',
-    };
-    setBids([newBid, ...bids.slice(0, 9)]);
-
-    if (isJackpotRng) {
-      toast(
-        isUnique
-          ? `✅ Bid ${value} sealed — it's UNIQUE! Good luck at the draw.`
-          : isBurnedByCollision
-          ? `🟠 Bid ${value} BURNED — collision! Someone else picked the same value.`
-          : `🔴 Bid ${value} BURNED — that value was already dead.`,
-      );
+  const handleBid = async (value: string) => {
+    if (!user) {
+      toast.error('Sign in to place a bid');
+      return;
+    }
+    const { success, message } = await placeBid(auction.id, value);
+    if (success) {
+      if (isJackpotRng) {
+        toast(`✅ Bid ${value} sealed — pending draw result.`);
+      } else {
+        toast(`✅ Bid ${value} placed!`);
+      }
+      refetchBids();
     } else {
-      toast(
-        isUnique
-          ? `✅ Bid ${value} is UNIQUE! Position #${newBid.position}`
-          : `❌ Bid ${value} was BURNED — someone else picked it!`,
-      );
+      toast.error(message);
     }
   };
 
