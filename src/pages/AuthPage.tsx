@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 
 const AuthPage = ({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) => {
   const [isSignUp, setIsSignUp] = useState(mode === 'signup');
@@ -9,16 +10,37 @@ const AuthPage = ({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) => {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [referral, setReferral] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { signUp, signIn } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSignUp && password !== confirm) {
       toast.error('Passwords do not match');
       return;
     }
-    toast.success(isSignUp ? 'Account created! Welcome to PNGWIN.' : 'Welcome back!');
-    navigate('/');
+    setLoading(true);
+    try {
+      if (isSignUp) {
+        const { error } = await signUp(email, password, referral || undefined);
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        toast.success('Account created! Welcome to PNGWIN.');
+      } else {
+        const { error } = await signIn(email, password);
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        toast.success('Welcome back!');
+      }
+      navigate('/');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -92,9 +114,10 @@ const AuthPage = ({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
-              className="w-full py-3 gradient-gold text-primary-foreground font-display font-bold text-sm tracking-wider rounded-lg shadow-gold"
+              disabled={loading}
+              className="w-full py-3 gradient-gold text-primary-foreground font-display font-bold text-sm tracking-wider rounded-lg shadow-gold disabled:opacity-60"
             >
-              {isSignUp ? 'CREATE ACCOUNT' : 'SIGN IN'}
+              {loading ? 'Please wait...' : isSignUp ? 'CREATE ACCOUNT' : 'SIGN IN'}
             </motion.button>
           </form>
 

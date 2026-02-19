@@ -1,35 +1,87 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import KpiCard from '@/components/KpiCard';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
-interface Transaction {
+interface LedgerEvent {
   id: string;
-  type: 'deposit' | 'withdraw' | 'bid' | 'win' | 'referral' | 'burn';
+  event_type: string;
   description: string;
   amount: number;
-  date: string;
+  created_at: string;
 }
-
-const TRANSACTIONS: Transaction[] = [
-  { id: '1', type: 'win', description: 'Won Arctic Rush #46', amount: 2450, date: '2h ago' },
-  { id: '2', type: 'bid', description: 'Bid in Penguin Showdown #12', amount: -10, date: '3h ago' },
-  { id: '3', type: 'referral', description: 'Social Circle bonus from @MoonShot', amount: 196, date: '5h ago' },
-  { id: '4', type: 'bid', description: 'Bid in Quick Freeze 15m', amount: -5, date: '6h ago' },
-  { id: '5', type: 'deposit', description: 'Deposit from wallet', amount: 5000, date: '1d ago' },
-  { id: '6', type: 'bid', description: 'PvP Duel entry (100 PNGWIN room)', amount: -100, date: '1d ago' },
-  { id: '7', type: 'win', description: 'PvP Duel vs @NordicBid', amount: 130, date: '1d ago' },
-  { id: '8', type: 'withdraw', description: 'Withdrawal to wallet', amount: -2000, date: '3d ago' },
-];
 
 const typeStyles: Record<string, { icon: string; color: string }> = {
   deposit: { icon: '💰', color: 'text-pngwin-green' },
   withdraw: { icon: '📤', color: 'text-pngwin-red' },
+  withdrawal: { icon: '📤', color: 'text-pngwin-red' },
   bid: { icon: '🎯', color: 'text-pngwin-red' },
+  bid_placed: { icon: '🎯', color: 'text-pngwin-red' },
   win: { icon: '🏆', color: 'text-pngwin-green' },
+  prize_payout: { icon: '🏆', color: 'text-pngwin-green' },
   referral: { icon: '🐧', color: 'text-ice' },
+  social_bonus: { icon: '🐧', color: 'text-ice' },
   burn: { icon: '🔥', color: 'text-pngwin-orange' },
 };
 
+const getStyle = (type: string) =>
+  typeStyles[type] ?? { icon: '📋', color: 'text-muted-foreground' };
+
+const formatDate = (iso: string) => {
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+};
+
 const WalletPage = () => {
+  const { user } = useAuth();
+  const [balance, setBalance] = useState<number | null>(null);
+  const [transactions, setTransactions] = useState<LedgerEvent[]>([]);
+  const [loadingBalance, setLoadingBalance] = useState(true);
+  const [loadingTx, setLoadingTx] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Fetch wallet balance
+    supabase
+      .from('wallets')
+      .select('balance')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setBalance(data.balance);
+        setLoadingBalance(false);
+      });
+
+    // Fetch transaction history from ledger_events
+    supabase
+      .from('ledger_events')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) setTransactions(data as LedgerEvent[]);
+        setLoadingTx(false);
+      });
+  }, [user]);
+
+  const totalDeposited = transactions
+    .filter(t => t.event_type === 'deposit')
+    .reduce((s, t) => s + (t.amount > 0 ? t.amount : 0), 0);
+  const totalWon = transactions
+    .filter(t => ['win', 'prize_payout'].includes(t.event_type))
+    .reduce((s, t) => s + (t.amount > 0 ? t.amount : 0), 0);
+  const totalSpent = transactions
+    .filter(t => ['bid', 'bid_placed'].includes(t.event_type))
+    .reduce((s, t) => s + Math.abs(t.amount), 0);
+  const netPL = (balance ?? 0) - totalSpent;
+
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0">
       <div className="container py-8">
@@ -38,7 +90,9 @@ const WalletPage = () => {
         {/* Balance Card */}
         <div className="bg-card border border-gold/20 rounded-xl p-8 text-center mb-8 glow-gold">
           <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Available Balance</div>
-          <div className="font-mono text-5xl md:text-6xl font-bold text-primary mb-2">9,021</div>
+          <div className="font-mono text-5xl md:text-6xl font-bold text-primary mb-2">
+            {loadingBalance ? '—' : (balance ?? 0).toLocaleString()}
+          </div>
           <div className="text-sm text-muted-foreground mb-6">PNGWIN</div>
           <div className="flex gap-3 justify-center">
             <motion.button
@@ -60,24 +114,33 @@ const WalletPage = () => {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-          <KpiCard label="Total Deposited" value="15,000" color="gold" />
-          <KpiCard label="Total Won" value="8,430" color="green" />
-          <KpiCard label="Total Spent" value="12,409" color="red" />
-          <KpiCard label="Net P/L" value="+2,021" color="green" />
+          <KpiCard label="Total Deposited" value={totalDeposited.toLocaleString()} color="gold" />
+          <KpiCard label="Total Won" value={totalWon.toLocaleString()} color="green" />
+          <KpiCard label="Total Spent" value={totalSpent.toLocaleString()} color="red" />
+          <KpiCard label="Net P/L" value={(netPL >= 0 ? '+' : '') + netPL.toLocaleString()} color={netPL >= 0 ? 'green' : 'red'} />
         </div>
 
         {/* Transactions */}
         <h2 className="font-display font-bold text-lg mb-4">Transaction History</h2>
         <div className="bg-card border border-border rounded-lg overflow-hidden">
-          {TRANSACTIONS.map(tx => {
-            const style = typeStyles[tx.type];
+          {!user && (
+            <div className="px-5 py-8 text-center text-muted-foreground text-sm">Sign in to view your transactions.</div>
+          )}
+          {user && loadingTx && (
+            <div className="px-5 py-8 text-center text-muted-foreground text-sm">Loading...</div>
+          )}
+          {user && !loadingTx && transactions.length === 0 && (
+            <div className="px-5 py-8 text-center text-muted-foreground text-sm">No transactions yet.</div>
+          )}
+          {transactions.map(tx => {
+            const style = getStyle(tx.event_type);
             return (
               <div key={tx.id} className="px-5 py-3.5 flex items-center justify-between border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors">
                 <div className="flex items-center gap-3">
                   <span className="text-lg">{style.icon}</span>
                   <div>
-                    <div className="text-sm font-medium">{tx.description}</div>
-                    <div className="text-[11px] text-muted-foreground">{tx.date}</div>
+                    <div className="text-sm font-medium">{tx.description || tx.event_type}</div>
+                    <div className="text-[11px] text-muted-foreground">{formatDate(tx.created_at)}</div>
                   </div>
                 </div>
                 <div className={`font-mono text-sm font-bold ${tx.amount >= 0 ? 'text-pngwin-green' : 'text-pngwin-red'}`}>
