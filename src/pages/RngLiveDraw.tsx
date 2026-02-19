@@ -1,36 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { AUCTIONS } from '@/data/mockData';
-
-interface DrawResult {
-  prizeNumber: number;
-  prizeAmount: number;
-  targetValue: string;
-  winner: string | null;
-  winAmount: number;
-  distance?: string;
-}
+import { DEMO_DRAW_RESULTS, DRAW_HISTORY, type DrawPrize } from '@/data/drawHistory';
 
 const PRIZE_SPLITS = [0.5, 0.25, 0.12, 0.08, 0.05];
-const MOCK_RESULTS: DrawResult[] = [
-  { prizeNumber: 1, prizeAmount: 31250, targetValue: '47.23', winner: '@DiamondHands', winAmount: 31250, distance: 'Exact match!' },
-  { prizeNumber: 2, prizeAmount: 15625, targetValue: '82.91', winner: null, winAmount: 0 },
-  { prizeNumber: 3, prizeAmount: 7500, targetValue: '15.44', winner: '@MoonShot', winAmount: 7500, distance: 'Distance: 0.02' },
-  { prizeNumber: 4, prizeAmount: 5000, targetValue: '63.17', winner: '@CryptoKing', winAmount: 5000, distance: 'Distance: 0.05' },
-  { prizeNumber: 5, prizeAmount: 3125, targetValue: '29.55', winner: null, winAmount: 0 },
-];
 
 type DrawPhase = 'countdown' | 'drawing' | 'complete';
 type DigitState = 'spinning' | 'locked' | 'idle';
 
-const SpinningDigit = ({ 
-  finalDigit, 
-  state, 
-  delay 
-}: { 
-  finalDigit: string; 
-  state: DigitState; 
+const SpinningDigit = ({
+  finalDigit,
+  state,
+  delay,
+}: {
+  finalDigit: string;
+  state: DigitState;
   delay: number;
 }) => {
   const [display, setDisplay] = useState('0');
@@ -87,17 +72,56 @@ const ConfettiParticle = ({ index }: { index: number }) => {
 
 const RngLiveDraw = () => {
   const { id } = useParams();
-  const auction = AUCTIONS.find((a) => a.id === id) || AUCTIONS.find(a => a.type === 'rng') || AUCTIONS[0];
+  const location = useLocation();
+
+  // Determine mode: demo, replay, or live
+  const isDemo = id === 'demo';
+  const isReplay = location.pathname.includes('/replay');
+  const replayWeek = isReplay ? Number(location.pathname.split('/draws/')[1]?.split('/')[0]) : null;
+
+  const auction = isDemo
+    ? { prizePool: 62500, bidCount: 567, uniqueBids: 320, burnedBids: 247, title: 'Demo Draw', icon: '🎲', type: 'rng' as const }
+    : AUCTIONS.find((a) => a.id === id) || AUCTIONS.find(a => a.type === 'rng') || AUCTIONS[0];
+
+  // Pick results based on mode
+  let drawResults: DrawPrize[];
+  let drawPool: number;
+  if (isReplay && replayWeek) {
+    const weekData = DRAW_HISTORY.find(d => d.week === replayWeek);
+    drawResults = weekData?.draws || DEMO_DRAW_RESULTS;
+    drawPool = weekData?.prizePool || 62500;
+  } else if (isDemo) {
+    drawResults = DEMO_DRAW_RESULTS;
+    drawPool = 62500;
+  } else {
+    drawResults = DEMO_DRAW_RESULTS;
+    drawPool = auction.prizePool;
+  }
+
+  // Speed: demo/replay = fast, live = normal
+  const speed = (isDemo || isReplay) ? 0.5 : 1;
 
   const [phase, setPhase] = useState<DrawPhase>('countdown');
   const [currentPrize, setCurrentPrize] = useState(0);
   const [digitStates, setDigitStates] = useState<DigitState[]>(['idle', 'idle', 'idle', 'idle']);
   const [showResult, setShowResult] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [completedDraws, setCompletedDraws] = useState<DrawResult[]>([]);
-  const [countdown, setCountdown] = useState(10);
+  const [completedDraws, setCompletedDraws] = useState<DrawPrize[]>([]);
+  const [countdown, setCountdown] = useState(isDemo || isReplay ? 3 : 10);
+  const [key, setKey] = useState(0); // for "Watch Again"
 
-  // Countdown phase
+  // Reset on key change
+  useEffect(() => {
+    setPhase('countdown');
+    setCurrentPrize(0);
+    setDigitStates(['idle', 'idle', 'idle', 'idle']);
+    setShowResult(false);
+    setShowConfetti(false);
+    setCompletedDraws([]);
+    setCountdown(isDemo || isReplay ? 3 : 10);
+  }, [key, isDemo, isReplay]);
+
+  // Countdown
   useEffect(() => {
     if (phase !== 'countdown') return;
     if (countdown <= 0) {
@@ -109,7 +133,7 @@ const RngLiveDraw = () => {
   }, [phase, countdown]);
 
   const runDraw = useCallback((prizeIndex: number) => {
-    const result = MOCK_RESULTS[prizeIndex];
+    const result = drawResults[prizeIndex];
     const digits = result.targetValue.replace('.', '');
 
     setCurrentPrize(prizeIndex);
@@ -117,33 +141,30 @@ const RngLiveDraw = () => {
     setShowConfetti(false);
     setDigitStates(['idle', 'idle', 'idle', 'idle']);
 
-    // Start spinning all
-    setTimeout(() => setDigitStates(['spinning', 'spinning', 'spinning', 'spinning']), 500);
+    const s = speed;
+    setTimeout(() => setDigitStates(['spinning', 'spinning', 'spinning', 'spinning']), 400 * s);
 
-    // Lock digits one at a time
-    const lockTimes = [1500, 2500, 3500, 4500];
+    const lockTimes = [1200 * s, 2000 * s, 2800 * s, 3600 * s];
     lockTimes.forEach((time, i) => {
       setTimeout(() => {
-        setDigitStates(prev => prev.map((s, j) => j <= i ? 'locked' : s) as DigitState[]);
+        setDigitStates(prev => prev.map((st, j) => j <= i ? 'locked' : st) as DigitState[]);
       }, time);
     });
 
-    // Show result
     setTimeout(() => {
       setShowResult(true);
       if (result.winner) setShowConfetti(true);
       setCompletedDraws(prev => [...prev, result]);
-    }, 5500);
+    }, 4200 * s);
 
-    // Next draw or complete
     setTimeout(() => {
       if (prizeIndex < 4) {
         runDraw(prizeIndex + 1);
       } else {
-        setTimeout(() => setPhase('complete'), 2000);
+        setTimeout(() => setPhase('complete'), 1500 * s);
       }
-    }, 8000);
-  }, []);
+    }, 6000 * s);
+  }, [drawResults, speed]);
 
   useEffect(() => {
     if (phase === 'drawing' && completedDraws.length === 0) {
@@ -151,10 +172,13 @@ const RngLiveDraw = () => {
     }
   }, [phase, completedDraws.length, runDraw]);
 
-  const currentResult = MOCK_RESULTS[currentPrize];
+  const currentResult = drawResults[currentPrize];
   const digits = currentResult?.targetValue.replace('.', '') || '0000';
-  const totalDistributed = MOCK_RESULTS.filter(r => r.winner).reduce((a, r) => a + r.winAmount, 0);
-  const totalRolled = MOCK_RESULTS.filter(r => !r.winner).reduce((a, r) => a + r.prizeAmount, 0);
+  const totalDistributed = drawResults.filter(r => r.winner).reduce((a, r) => a + r.winAmount, 0);
+  const totalRolled = drawResults.filter(r => !r.winner).reduce((a, r) => a + Math.floor(drawPool * (r.prizePercent / 100)), 0);
+
+  const backLink = isReplay ? '/draws' : isDemo ? '/' : `/auction/${id}`;
+  const backLabel = isReplay ? '← Back to Draw History' : isDemo ? '← Back to Lobby' : '← Back to Auction';
 
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0 relative overflow-hidden">
@@ -165,26 +189,34 @@ const RngLiveDraw = () => {
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-pngwin-purple/3 rounded-full blur-[150px]" />
       </div>
 
-      {/* Confetti */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50">
           {Array.from({ length: 60 }).map((_, i) => (
-            <ConfettiParticle key={i} index={i} />
+            <ConfettiParticle key={`${key}-${currentPrize}-${i}`} index={i} />
           ))}
         </div>
       )}
 
       <div className="container py-8 relative z-10">
-        <Link to={`/auction/${id}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
-          ← Back to Auction
+        <Link to={backLink} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+          {backLabel}
         </Link>
 
-        {/* COUNTDOWN PHASE */}
+        {/* Demo/Replay badge */}
+        {(isDemo || isReplay) && (
+          <div className="text-center mb-4">
+            <span className="px-3 py-1 rounded-full text-[10px] font-semibold uppercase bg-pngwin-purple/10 text-pngwin-purple border border-pngwin-purple/20">
+              {isDemo ? '🎬 DEMO MODE' : `🎬 REPLAY — WEEK ${replayWeek}`}
+            </span>
+          </div>
+        )}
+
+        {/* COUNTDOWN */}
         {phase === 'countdown' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16">
             <div className="text-xs text-ice uppercase tracking-[6px] mb-4 font-semibold">🎲 RNG LUCKY NUMBER DRAW</div>
             <h1 className="font-display text-4xl md:text-6xl font-bold mb-8">
-              DRAW BEGINS IN
+              {isDemo ? 'DEMO DRAW' : isReplay ? `WEEK ${replayWeek} REPLAY` : 'DRAW BEGINS IN'}
             </h1>
             <motion.div
               className="font-mono text-7xl md:text-9xl font-bold text-primary mb-12"
@@ -196,32 +228,34 @@ const RngLiveDraw = () => {
               {countdown}
             </motion.div>
 
-            <div className="grid grid-cols-3 gap-4 max-w-md mx-auto mb-12">
-              <div className="bg-card border border-border rounded-lg p-4 text-center">
-                <div className="font-mono text-2xl font-bold text-ice">{auction.bidCount}</div>
-                <div className="text-[10px] text-muted-foreground">Total Bids</div>
+            {!isDemo && !isReplay && (
+              <div className="grid grid-cols-3 gap-4 max-w-md mx-auto mb-12">
+                <div className="bg-card border border-border rounded-lg p-4 text-center">
+                  <div className="font-mono text-2xl font-bold text-ice">{auction.bidCount}</div>
+                  <div className="text-[10px] text-muted-foreground">Total Bids</div>
+                </div>
+                <div className="bg-card border border-border rounded-lg p-4 text-center">
+                  <div className="font-mono text-2xl font-bold text-pngwin-green">{auction.uniqueBids}</div>
+                  <div className="text-[10px] text-muted-foreground">Unique Alive</div>
+                </div>
+                <div className="bg-card border border-border rounded-lg p-4 text-center">
+                  <div className="font-mono text-2xl font-bold text-pngwin-red">{auction.burnedBids}</div>
+                  <div className="text-[10px] text-muted-foreground">Burned</div>
+                </div>
               </div>
-              <div className="bg-card border border-border rounded-lg p-4 text-center">
-                <div className="font-mono text-2xl font-bold text-pngwin-green">{auction.uniqueBids}</div>
-                <div className="text-[10px] text-muted-foreground">Unique Alive</div>
-              </div>
-              <div className="bg-card border border-border rounded-lg p-4 text-center">
-                <div className="font-mono text-2xl font-bold text-pngwin-red">{auction.burnedBids}</div>
-                <div className="text-[10px] text-muted-foreground">Burned</div>
-              </div>
-            </div>
+            )}
 
             <div className="bg-card border border-gold/20 rounded-xl p-6 max-w-lg mx-auto glow-gold">
               <div className="font-display font-bold text-lg mb-1">5 PRIZES TO WIN!</div>
               <div className="font-mono text-3xl font-bold text-primary mb-4">
-                {auction.prizePool.toLocaleString()} PNGWIN
+                {drawPool.toLocaleString()} PNGWIN
               </div>
               <div className="space-y-2">
                 {PRIZE_SPLITS.map((split, i) => (
                   <div key={i} className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Prize #{i + 1} ({(split * 100).toFixed(0)}%)</span>
                     <span className="font-mono font-bold text-primary">
-                      {Math.floor(auction.prizePool * split).toLocaleString()} PNGWIN
+                      {Math.floor(drawPool * split).toLocaleString()} PNGWIN
                     </span>
                   </div>
                 ))}
@@ -230,7 +264,7 @@ const RngLiveDraw = () => {
           </motion.div>
         )}
 
-        {/* DRAWING PHASE */}
+        {/* DRAWING */}
         {phase === 'drawing' && (
           <div className="text-center py-8">
             <motion.div
@@ -243,20 +277,18 @@ const RngLiveDraw = () => {
                 Drawing Prize #{currentPrize + 1} of 5
               </div>
               <h2 className="font-display text-3xl md:text-5xl font-bold mb-2">
-                {currentResult.prizeAmount.toLocaleString()} <span className="text-primary">PNGWIN</span>
+                {currentResult.winAmount > 0 ? currentResult.winAmount.toLocaleString() : Math.floor(drawPool * (currentResult.prizePercent / 100)).toLocaleString()} <span className="text-primary">PNGWIN</span>
               </h2>
             </motion.div>
 
-            {/* Slot Machine */}
             <div className="flex items-center justify-center gap-3 md:gap-4 mb-12">
-              <SpinningDigit finalDigit={digits[0]} state={digitStates[0]} delay={1500} />
-              <SpinningDigit finalDigit={digits[1]} state={digitStates[1]} delay={2500} />
+              <SpinningDigit finalDigit={digits[0]} state={digitStates[0]} delay={1200 * speed} />
+              <SpinningDigit finalDigit={digits[1]} state={digitStates[1]} delay={2000 * speed} />
               <span className="font-mono text-5xl font-bold text-muted-foreground">.</span>
-              <SpinningDigit finalDigit={digits[2]} state={digitStates[2]} delay={3500} />
-              <SpinningDigit finalDigit={digits[3]} state={digitStates[3]} delay={4500} />
+              <SpinningDigit finalDigit={digits[2]} state={digitStates[2]} delay={2800 * speed} />
+              <SpinningDigit finalDigit={digits[3]} state={digitStates[3]} delay={3600 * speed} />
             </div>
 
-            {/* Result */}
             <AnimatePresence>
               {showResult && (
                 <motion.div
@@ -282,7 +314,7 @@ const RngLiveDraw = () => {
                       <div className="text-4xl mb-3">❌</div>
                       <div className="font-display text-xl font-bold text-pngwin-red mb-2">NO WINNER</div>
                       <div className="text-sm text-muted-foreground">
-                        No unique bid matches. {currentResult.prizeAmount.toLocaleString()} PNGWIN rolls to next jackpot!
+                        No unique bid matches. {Math.floor(drawPool * (currentResult.prizePercent / 100)).toLocaleString()} PNGWIN rolls to next jackpot!
                       </div>
                     </div>
                   )}
@@ -290,9 +322,8 @@ const RngLiveDraw = () => {
               )}
             </AnimatePresence>
 
-            {/* Progress dots */}
             <div className="flex justify-center gap-3 mt-10">
-              {MOCK_RESULTS.map((_, i) => (
+              {drawResults.map((_, i) => (
                 <div
                   key={i}
                   className={`w-3 h-3 rounded-full transition-all ${
@@ -308,7 +339,7 @@ const RngLiveDraw = () => {
           </div>
         )}
 
-        {/* COMPLETE PHASE */}
+        {/* COMPLETE */}
         {phase === 'complete' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto py-8">
             <div className="text-center mb-8">
@@ -317,7 +348,7 @@ const RngLiveDraw = () => {
             </div>
 
             <div className="bg-card border border-border rounded-xl overflow-hidden mb-8">
-              {MOCK_RESULTS.map((result, i) => (
+              {drawResults.map((result, i) => (
                 <div key={i} className={`px-6 py-4 flex items-center justify-between border-b border-border/50 last:border-0 ${
                   result.winner ? 'bg-green-subtle' : 'bg-red-subtle'
                 }`}>
@@ -357,6 +388,21 @@ const RngLiveDraw = () => {
                 <div className="font-mono text-xl font-bold text-primary">{(totalRolled + 5000).toLocaleString()}</div>
                 <div className="text-[10px] text-muted-foreground">Next Jackpot Starts</div>
               </div>
+            </div>
+
+            <div className="flex gap-3 justify-center flex-wrap mb-4">
+              <button
+                onClick={() => setKey(k => k + 1)}
+                className="px-5 py-2.5 bg-secondary border border-border text-muted-foreground font-display font-semibold text-sm rounded-lg hover:text-foreground transition-colors"
+              >
+                🔄 Watch Again
+              </button>
+              <Link
+                to="/auction/rng-1"
+                className="px-5 py-2.5 gradient-gold text-primary-foreground font-display font-bold text-sm rounded-lg shadow-gold"
+              >
+                Enter This Week's Jackpot →
+              </Link>
             </div>
 
             <div className="text-center text-sm text-muted-foreground">

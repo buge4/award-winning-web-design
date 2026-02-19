@@ -22,6 +22,8 @@ import AuthPage from "./pages/AuthPage";
 import HowAuctionsWork from "./pages/HowAuctionsWork";
 import HowPvpWorks from "./pages/HowPvpWorks";
 import HowTournamentsWork from "./pages/HowTournamentsWork";
+import DrawHistoryPage from "./pages/DrawHistoryPage";
+import DrawDetailPage from "./pages/DrawDetailPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +40,9 @@ const App = () => (
           <Route path="/auctions" element={<AuctionsPage />} />
           <Route path="/auction/:id" element={<AuctionDetail />} />
           <Route path="/auction/:id/draw" element={<RngLiveDraw />} />
+          <Route path="/draws" element={<DrawHistoryPage />} />
+          <Route path="/draws/:weekNumber" element={<DrawDetailPage />} />
+          <Route path="/draws/:weekNumber/replay" element={<RngLiveDraw />} />
           <Route path="/pvp" element={<PvpArena />} />
           <Route path="/pvp/how-it-works" element={<HowPvpWorks />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 const navLinks = [
   { path: '/', label: 'Lobby' },
   { path: '/auctions', label: 'Auctions' },
+  { path: '/draws', label: 'Draws' },
   { path: '/pvp', label: 'PvP' },
   { path: '/tournaments', label: 'Tournaments' },
   { path: '/leaderboard', label: 'Leaderboard' },
