@@ -233,7 +233,7 @@ const ManageAuctions = () => {
   useEffect(() => { fetchInstances(); }, []);
 
   const handleEnd = async (id: string) => {
-    const { error } = await supabase.from('auction_instances').update({ status: 'ended' }).eq('id', id);
+    const { error } = await supabase.from('auction_instances').update({ status: 'ended', actual_end: new Date().toISOString() }).eq('id', id);
     if (error) toast.error(error.message); else { toast.success('Auction ended'); fetchInstances(); }
   };
 
@@ -357,15 +357,22 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
       const { user } = (await supabase.auth.getUser()).data;
 
       // 1. Create config with exact column names
+      const prizeType = auctionType.startsWith('jackpot') ? 'jackpot'
+        : ['free', 'airdrop_random', 'airdrop_split'].includes(auctionType) ? 'manual'
+        : 'pool';
+
       const configPayload: Record<string, unknown> = {
         name: name.trim(),
+        slug: name.trim().toLowerCase().replace(/\s+/g, '-'),
         auction_type: auctionType,
         currency,
         bid_fee: parseFloat(bidFee),
         min_bid_value: parseFloat(minBidValue),
         max_bid_value: parseFloat(maxBidValue),
+        bid_precision: 2,
         max_bids_per_player: maxBidsPerPlayer ? parseInt(maxBidsPerPlayer) : null,
         consecutive_limit: parseInt(consecutiveLimit),
+        prize_type: prizeType,
         prize_pool_pct: split.winner,
         platform_pct: split.platform,
         burn_pct: split.burn,
