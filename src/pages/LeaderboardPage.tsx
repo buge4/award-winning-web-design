@@ -1,8 +1,34 @@
 import { motion } from 'framer-motion';
-import { LEADERBOARD } from '@/data/mockData';
+import { LEADERBOARD as MOCK_LEADERBOARD } from '@/data/mockData';
+import { useLeaderboard } from '@/hooks/useAuctions';
 
 const LeaderboardPage = () => {
-  const [first, second, third, ...rest] = LEADERBOARD;
+  const { entries: dbEntries, loading } = useLeaderboard();
+  const entries = dbEntries.length > 0 ? dbEntries : MOCK_LEADERBOARD;
+
+  const [first, second, third, ...rest] = entries;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-16 pb-20 md:pb-0">
+        <div className="container py-8">
+          <h1 className="font-display text-3xl font-bold mb-8">🏆 Leaderboard</h1>
+          <div className="text-center py-20 text-muted-foreground text-sm">Loading leaderboard...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!first || !second || !third) {
+    return (
+      <div className="min-h-screen pt-16 pb-20 md:pb-0">
+        <div className="container py-8">
+          <h1 className="font-display text-3xl font-bold mb-8">🏆 Leaderboard</h1>
+          <div className="text-center py-20 text-muted-foreground text-sm">No leaderboard data yet.</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0">
@@ -75,7 +101,7 @@ const LeaderboardPage = () => {
               </tr>
             </thead>
             <tbody>
-              {LEADERBOARD.map((entry) => (
+              {entries.map((entry) => (
                 <tr key={entry.rank} className="border-b border-border/50 last:border-b-0 hover:bg-card-hover transition-colors">
                   <td className="px-5 py-3">
                     <span className={`font-mono text-sm font-bold ${entry.rank <= 3 ? 'text-primary' : 'text-muted-foreground'}`}>

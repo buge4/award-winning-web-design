@@ -5,13 +5,14 @@ import BidInput from '@/components/BidInput';
 import KpiCard from '@/components/KpiCard';
 import SocialCircleWidget from '@/components/SocialCircleWidget';
 import { toast } from 'sonner';
-import { useMyBids, usePlaceBid } from '@/hooks/useAuctions';
+import { useMyBids, usePlaceBid, useAuctionDetail } from '@/hooks/useAuctions';
 import { useAuth } from '@/context/AuthContext';
 
 const AuctionDetail = () => {
   const { id } = useParams();
   const { user } = useAuth();
-  const auction = AUCTIONS.find((a) => a.id === id) || AUCTIONS[0];
+  const { auction: dbAuction } = useAuctionDetail(id);
+  const auction = dbAuction ?? AUCTIONS.find((a) => a.id === id) ?? AUCTIONS[0];
   const { bids, refetch: refetchBids } = useMyBids(id);
   const { placeBid } = usePlaceBid();
 

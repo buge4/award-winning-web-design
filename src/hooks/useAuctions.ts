@@ -1,47 +1,142 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import type { Auction } from '@/data/mockData';
 
 // Map a Supabase auction_instance row to our local Auction shape
-// We keep mock data as fallback for fields not in the DB
 const mapRow = (row: Record<string, unknown>): Auction => {
   const config = (row.auction_configs as Record<string, unknown>) ?? {};
-  const type = (config.type as Auction['type']) ?? (row.type as Auction['type']) ?? 'live';
+  const rawType = String(config.auction_type ?? config.type ?? row.type ?? 'live');
+
+  // Map DB auction_type to our local AuctionType
+  const typeMap: Record<string, Auction['type']> = {
+    live: 'live',
+    timed: 'timed',
+    blind_count: 'blind',
+    blind_timer: 'blind',
+    free: 'free',
+    jackpot_huba: 'jackpot',
+    jackpot_rng: 'rng',
+    airdrop_random: 'free',
+    airdrop_split: 'free',
+  };
+  const type = typeMap[rawType] ?? (rawType as Auction['type']);
+
+  const statusMap: Record<string, Auction['status']> = {
+    scheduled: 'accumulating',
+    accumulating: 'accumulating',
+    hot: 'hot',
+    live: 'active',
+    ended: 'ended',
+    resolved: 'settled',
+    cancelled: 'ended',
+  };
+  const status = statusMap[String(row.status)] ?? (row.status as Auction['status']) ?? 'active';
+
   return {
-    id: String(row.id ?? row.instance_id),
+    id: String(row.id),
     title: String(config.name ?? row.title ?? 'Auction'),
     type,
-    status: (row.status as Auction['status']) ?? 'active',
-    prizePool: Number(row.prize_pool ?? config.prize_pool ?? 0),
-    bidCount: Number(row.bid_count ?? 0),
-    bidCost: Number(config.bid_cost ?? config.entry_fee ?? 10),
+    status,
+    prizePool: Number(row.prize_pool ?? 0),
+    bidCount: Number(row.total_bids ?? 0),
+    bidCost: Number(config.bid_fee ?? 10),
     uniqueBids: Number(row.unique_bids ?? 0),
     burnedBids: Number(row.burned_bids ?? 0),
     icon: type === 'rng' ? '🎲' : type === 'jackpot' ? '🎰' : type === 'free' ? '🎁' : type === 'blind' ? '🙈' : type === 'timed' ? '⏱️' : '🎯',
     timeRemaining: row.time_remaining ? String(row.time_remaining) : undefined,
-    bidTarget: config.bid_target ? Number(config.bid_target) : undefined,
+    bidTarget: config.bids_to_hot ? Number(config.bids_to_hot) : undefined,
     rolloverWeek: row.rollover_week ? Number(row.rollover_week) : undefined,
     rolloverHistory: row.rollover_history ? (row.rollover_history as number[]) : undefined,
   };
 };
 
-export const useAuctions = () => {
+/** Fetch all auction instances (optionally filter by active statuses) */
+export const useAuctions = (activeOnly = false) => {
   const [auctions, setAuctions] = useState<Auction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let query = supabase
+      .from('auction_instances')
+      .select('*, auction_configs(*)')
+      .order('created_at', { ascending: false });
+
+    if (activeOnly) {
+      query = query.in('status', ['accumulating', 'hot', 'live', 'scheduled']);
+    }
+
+    query.then(({ data, error }) => {
+      if (data && data.length > 0) {
+        setAuctions(data.map(row => mapRow(row as Record<string, unknown>)));
+      }
+      setLoading(false);
+      if (error) console.error('useAuctions error:', error.message);
+    });
+  }, [activeOnly]);
+
+  return { auctions, loading };
+};
+
+/** Fetch a single auction instance by id */
+export const useAuctionDetail = (instanceId?: string) => {
+  const [auction, setAuction] = useState<Auction | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!instanceId) { setLoading(false); return; }
+
+    supabase
+      .from('auction_instances')
+      .select('*, auction_configs(*)')
+      .eq('id', instanceId)
+      .single()
+      .then(({ data, error }) => {
+        if (data) {
+          setAuction(mapRow(data as Record<string, unknown>));
+        }
+        setLoading(false);
+        if (error) console.error('useAuctionDetail error:', error.message);
+      });
+  }, [instanceId]);
+
+  return { auction, loading };
+};
+
+/** Fetch resolved auctions for history */
+export const useAuctionHistory = () => {
+  const [auctions, setAuctions] = useState<Array<{
+    id: string; title: string; type: string; date: string;
+    winner: string; winningBid: string; prizeWon: number;
+    totalBids: number; players: number; uniqueBids: number; burnedBids: number;
+  }>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase
       .from('auction_instances')
       .select('*, auction_configs(*)')
-      .order('created_at', { ascending: false })
+      .eq('status', 'resolved')
+      .order('resolved_at', { ascending: false })
+      .limit(20)
       .then(({ data, error }) => {
         if (data && data.length > 0) {
-          setAuctions(data.map(row => mapRow(row as Record<string, unknown>)));
+          setAuctions(data.map((row: any) => ({
+            id: row.id,
+            title: row.auction_configs?.name ?? 'Auction',
+            type: row.auction_configs?.auction_type ?? 'live',
+            date: row.resolved_at ? new Date(row.resolved_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
+            winner: row.winner_id ? `User ${String(row.winner_id).slice(0, 6)}` : '—',
+            winningBid: row.winning_number ? String(row.winning_number) : '—',
+            prizeWon: Number(row.prize_pool ?? 0),
+            totalBids: Number(row.total_bids ?? 0),
+            players: 0,
+            uniqueBids: 0,
+            burnedBids: Number(row.burn_total ?? 0),
+          })));
         }
-        // If no data or error, keep empty — pages will fall back to mock data
         setLoading(false);
-        if (error) console.error('useAuctions error:', error.message);
+        if (error) console.error('useAuctionHistory error:', error.message);
       });
   }, []);
 
@@ -52,7 +147,7 @@ export const useMyBids = (auctionId?: string) => {
   const { user } = useAuth();
   const [bids, setBids] = useState<Array<{ id: string; value: string; status: 'unique' | 'burned'; position?: number; timestamp: string }>>([]);
 
-  const fetchBids = () => {
+  const fetchBids = useCallback(() => {
     if (!user) return;
     let query = supabase
       .from('auction_bids')
@@ -71,18 +166,18 @@ export const useMyBids = (auctionId?: string) => {
           data.map(b => ({
             id: String(b.id),
             value: String(b.bid_value ?? b.bid_amount ?? '00.00'),
-            status: b.is_unique ? 'unique' : 'burned',
+            status: b.is_burned ? 'burned' : 'unique',
             position: b.position ?? undefined,
             timestamp: new Date(b.created_at).toLocaleTimeString(),
           }))
         );
       }
     });
-  };
+  }, [user, auctionId]);
 
   useEffect(() => {
     fetchBids();
-  }, [user, auctionId]);
+  }, [fetchBids]);
 
   return { bids, refetch: fetchBids };
 };
@@ -94,10 +189,10 @@ export const usePlaceBid = () => {
     if (!user) return { success: false, message: 'You must be signed in to bid.' };
 
     const numericValue = parseFloat(bidValue);
-    const { error } = await supabase.rpc('place_auction_bid', {
+    const { data, error } = await supabase.rpc('place_auction_bid', {
       p_user_id: user.id,
       p_instance_id: instanceId,
-      p_bid_amount: numericValue,
+      p_bid_value: numericValue,
     });
 
     if (error) {
@@ -109,3 +204,74 @@ export const usePlaceBid = () => {
   return { placeBid };
 };
 
+/** Fetch leaderboard from project_members + users */
+export const useLeaderboard = () => {
+  const [entries, setEntries] = useState<Array<{
+    rank: number; username: string; initials: string;
+    wins: number; earnings: number; streak: number;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from('project_members')
+      .select('*, users(*)')
+      .eq('project_slug', 'auction')
+      .eq('is_active', true)
+      .then(({ data, error }) => {
+        if (data && data.length > 0) {
+          const mapped = data.map((row: any, i: number) => {
+            const u = row.users ?? {};
+            const uname = u.username ?? `user_${String(row.user_id).slice(0, 6)}`;
+            return {
+              rank: i + 1,
+              username: `@${uname}`,
+              initials: uname.slice(0, 2).toUpperCase(),
+              wins: u.wins ?? 0,
+              earnings: u.earnings ?? 0,
+              streak: u.streak ?? 0,
+            };
+          });
+          setEntries(mapped);
+        }
+        setLoading(false);
+        if (error) console.error('useLeaderboard error:', error.message);
+      });
+  }, []);
+
+  return { entries, loading };
+};
+
+/** Fetch user profile from users table */
+export const useProfile = () => {
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<{
+    username: string; email: string; role: string;
+    referral_code: string; created_at: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+      .then(({ data, error }) => {
+        if (data) {
+          setProfile({
+            username: data.username ?? '',
+            email: data.email ?? '',
+            role: data.role ?? 'user',
+            referral_code: data.referral_code ?? '',
+            created_at: data.created_at ?? '',
+          });
+        }
+        setLoading(false);
+        if (error) console.error('useProfile error:', error.message);
+      });
+  }, [user]);
+
+  return { profile, loading };
+};
