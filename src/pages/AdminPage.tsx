@@ -42,22 +42,30 @@ interface AuctionInstance {
   config_id: string;
   status: string;
   total_bids: number;
+  unique_bidders: number;
+  total_bid_fees: number;
   prize_pool: number;
-  burn_total: number;
-  social_pool: number;
-  jackpot_balance: number;
+  burned_amount: number;
   winner_id: string | null;
-  winning_number: number | null;
+  winning_amount: number | null;
+  winning_bid_id: string | null;
   created_at: string;
-  resolved_at: string | null;
+  actual_end: string | null;
+  scheduled_start: string | null;
+  hot_mode_started_at: string | null;
+  hot_mode_ends_at: string | null;
   auction_configs: {
     name: string;
     auction_type: string;
     currency: string;
     bid_fee: number;
-    bid_range_min: number;
-    bid_range_max: number;
-    revenue_split: Record<string, number>;
+    min_bid_value: number;
+    max_bid_value: number;
+    prize_pool_pct: number;
+    platform_pct: number;
+    burn_pct: number;
+    social_circle_pct: number;
+    rollover_pct: number;
   };
 }
 
@@ -281,7 +289,7 @@ const ManageAuctions = () => {
                   </td>
                   <td className="px-5 py-3 text-right font-mono text-sm">{inst.total_bids}</td>
                   <td className="px-5 py-3 text-right font-mono text-sm text-primary font-bold">{Number(inst.prize_pool).toLocaleString()}</td>
-                  <td className="px-5 py-3 text-right font-mono text-sm text-pngwin-red">{Number(inst.burn_total).toLocaleString()}</td>
+                  <td className="px-5 py-3 text-right font-mono text-sm text-pngwin-red">{Number(inst.burned_amount).toLocaleString()}</td>
                   <td className="px-5 py-3 text-xs text-muted-foreground">{new Date(inst.created_at).toLocaleDateString()}</td>
                   <td className="px-5 py-3 text-right space-x-2">
                     {['accumulating', 'hot', 'live'].includes(inst.status) && (
@@ -316,13 +324,13 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
   const [auctionType, setAuctionType] = useState<string>('live');
   const [currency, setCurrency] = useState<string>('PNGWIN');
   const [bidFee, setBidFee] = useState('10');
-  const [bidRangeMin, setBidRangeMin] = useState('0.01');
-  const [bidRangeMax, setBidRangeMax] = useState('99.99');
-  const [maxBidsPerUser, setMaxBidsPerUser] = useState('');
+  const [minBidValue, setMinBidValue] = useState('0.01');
+  const [maxBidValue, setMaxBidValue] = useState('99.99');
+  const [maxBidsPerPlayer, setMaxBidsPerPlayer] = useState('');
   const [consecutiveLimit, setConsecutiveLimit] = useState('5');
   const [bidsToHot, setBidsToHot] = useState('100');
   const [hotDuration, setHotDuration] = useState('300');
-  const [gracePeriod, setGracePeriod] = useState('30');
+  
   const [totalDuration, setTotalDuration] = useState('900');
   const [totalBidsLimit, setTotalBidsLimit] = useState('500');
   const [prizeAmount, setPrizeAmount] = useState('');
@@ -346,38 +354,42 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
 
     setSubmitting(true);
     try {
-      // Build settings object for fields that aren't direct columns
-      const settings: Record<string, unknown> = {
-        max_bids_per_user: maxBidsPerUser ? parseInt(maxBidsPerUser) : null,
-        consecutive_limit: parseInt(consecutiveLimit),
-        revenue_split: split,
-      };
+      const { user } = (await supabase.auth.getUser()).data;
 
-      if (showLiveFields) {
-        settings.bids_to_hot = parseInt(bidsToHot);
-        settings.hot_duration_sec = parseInt(hotDuration);
-        settings.grace_period_sec = parseInt(gracePeriod);
-      }
-      if (showTimedFields) settings.total_duration_sec = parseInt(totalDuration);
-      if (showBlindCountFields) settings.total_bids_limit = parseInt(totalBidsLimit);
-      if (showFreeFields || showAirdropFields) {
-        settings.prize_amount = parseFloat(prizeAmount || '0');
-        settings.prize_description = prizeDescription;
-      }
-      if (showJackpotFields) {
-        settings.jackpot_seed = parseFloat(jackpotSeed || '0');
-        settings.prize_description = prizeDescription;
-      }
-
-      // 1. Create config — only include columns that exist in the table
+      // 1. Create config with exact column names
       const configPayload: Record<string, unknown> = {
         name: name.trim(),
         auction_type: auctionType,
         currency,
         bid_fee: parseFloat(bidFee),
-        is_active: true,
-        settings,
+        min_bid_value: parseFloat(minBidValue),
+        max_bid_value: parseFloat(maxBidValue),
+        max_bids_per_player: maxBidsPerPlayer ? parseInt(maxBidsPerPlayer) : null,
+        consecutive_limit: parseInt(consecutiveLimit),
+        prize_pool_pct: split.winner,
+        platform_pct: split.platform,
+        burn_pct: split.burn,
+        social_circle_pct: split.social,
+        rollover_pct: split.rollover,
+        created_by: user?.id ?? null,
+        is_template: false,
       };
+
+      if (showLiveFields) {
+        configPayload.total_bids_to_hot = parseInt(bidsToHot);
+        configPayload.hot_mode_duration_seconds = parseInt(hotDuration);
+      }
+      if (showTimedFields) configPayload.auction_duration_seconds = parseInt(totalDuration);
+      if (showBlindCountFields) configPayload.total_bids_to_close = parseInt(totalBidsLimit);
+      if (showFreeFields || showAirdropFields) {
+        configPayload.manual_prize_value = parseFloat(prizeAmount || '0');
+        configPayload.manual_prize_title = prizeDescription;
+        configPayload.manual_prize_description = prizeDescription;
+      }
+      if (showJackpotFields) {
+        configPayload.jackpot_seed = parseFloat(jackpotSeed || '0');
+        configPayload.manual_prize_description = prizeDescription;
+      }
 
       const { data: config, error: configError } = await supabase
         .from('auction_configs')
@@ -387,18 +399,17 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
 
       if (configError) throw configError;
 
-      // 2. Create instance
+      // 2. Create instance with exact column names
       const { error: instError } = await supabase
         .from('auction_instances')
         .insert({
           config_id: config.id,
           status: 'accumulating',
           total_bids: 0,
+          unique_bidders: 0,
+          total_bid_fees: 0,
           prize_pool: 0,
-          burn_total: 0,
-          social_pool: 0,
-          rollover_amount: 0,
-          jackpot_balance: showJackpotFields ? parseFloat(jackpotSeed || '0') : 0,
+          burned_amount: 0,
         })
         .select()
         .single();
@@ -460,18 +471,18 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
               className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:border-primary" />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Bid Range Min</label>
-            <input value={bidRangeMin} onChange={e => setBidRangeMin(e.target.value)} type="number" step="0.01"
+            <label className="text-xs text-muted-foreground mb-1 block">Min Bid Value</label>
+            <input value={minBidValue} onChange={e => setMinBidValue(e.target.value)} type="number" step="0.01"
               className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:border-primary" />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Bid Range Max</label>
-            <input value={bidRangeMax} onChange={e => setBidRangeMax(e.target.value)} type="number" step="0.01"
+            <label className="text-xs text-muted-foreground mb-1 block">Max Bid Value</label>
+            <input value={maxBidValue} onChange={e => setMaxBidValue(e.target.value)} type="number" step="0.01"
               className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:border-primary" />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Max Bids/User (optional)</label>
-            <input value={maxBidsPerUser} onChange={e => setMaxBidsPerUser(e.target.value)} type="number" placeholder="Unlimited"
+            <label className="text-xs text-muted-foreground mb-1 block">Max Bids/Player (optional)</label>
+            <input value={maxBidsPerPlayer} onChange={e => setMaxBidsPerPlayer(e.target.value)} type="number" placeholder="Unlimited"
               className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:border-primary" />
           </div>
           <div>
@@ -483,7 +494,7 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
 
         {/* Conditional fields */}
         {showLiveFields && (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Bids to Hot</label>
               <input value={bidsToHot} onChange={e => setBidsToHot(e.target.value)} type="number"
@@ -492,11 +503,6 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Hot Duration (sec)</label>
               <input value={hotDuration} onChange={e => setHotDuration(e.target.value)} type="number"
-                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:border-primary" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Grace Period (sec)</label>
-              <input value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} type="number"
                 className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:border-primary" />
             </div>
           </div>
@@ -593,7 +599,7 @@ const AuctionResults = () => {
       .from('auction_instances')
       .select('*, auction_configs(*)')
       .eq('status', 'resolved')
-      .order('resolved_at', { ascending: false })
+      .order('actual_end', { ascending: false })
       .limit(20)
       .then(({ data }) => {
         if (data) setInstances(data);
@@ -615,8 +621,14 @@ const AuctionResults = () => {
   if (selected) {
     const config = selected.auction_configs;
     const bids = selected.auction_bids ?? [];
-    const winnerBid = bids.find((b: any) => b.is_winner);
-    const split = config?.revenue_split ?? DEFAULT_SPLIT;
+    const winnerBid = bids.find((b: any) => b.is_winning);
+    const pctSplit = {
+      winner: config?.prize_pool_pct ?? DEFAULT_SPLIT.winner,
+      burn: config?.burn_pct ?? DEFAULT_SPLIT.burn,
+      platform: config?.platform_pct ?? DEFAULT_SPLIT.platform,
+      social: config?.social_circle_pct ?? DEFAULT_SPLIT.social,
+      rollover: config?.rollover_pct ?? DEFAULT_SPLIT.rollover,
+    };
     const pool = Number(selected.prize_pool);
 
     return (
@@ -624,13 +636,13 @@ const AuctionResults = () => {
         <button onClick={() => setSelected(null)} className="text-xs text-muted-foreground hover:text-foreground mb-4">← Back to Results</button>
         <div className="bg-card border border-border rounded-lg p-6 mb-6">
           <h2 className="font-display font-bold text-lg mb-1">{config?.name ?? 'Auction'}</h2>
-          <div className="text-xs text-muted-foreground mb-4">{config?.auction_type} • Resolved {selected.resolved_at ? new Date(selected.resolved_at).toLocaleString() : ''}</div>
+          <div className="text-xs text-muted-foreground mb-4">{config?.auction_type} • Resolved {selected.actual_end ? new Date(selected.actual_end).toLocaleString() : ''}</div>
 
           {winnerBid && (
             <div className="bg-gold-subtle border border-gold rounded-lg p-4 mb-4">
               <div className="text-xs text-muted-foreground">Winner</div>
               <div className="font-bold text-primary">{winnerBid.users?.username ?? 'Unknown'}</div>
-              <div className="font-mono text-sm">Bid: {winnerBid.bid_value} • Prize: {pool.toLocaleString()} {config?.currency}</div>
+              <div className="font-mono text-sm">Bid: {winnerBid.bid_amount} • Prize: {pool.toLocaleString()} {config?.currency}</div>
             </div>
           )}
 
@@ -640,7 +652,7 @@ const AuctionResults = () => {
               <div className="font-mono text-sm font-bold text-primary">{pool.toLocaleString()}</div>
               <div className="text-[9px] text-muted-foreground">Total Pool</div>
             </div>
-            {Object.entries(split).map(([key, pct]: [string, any]) => (
+            {Object.entries(pctSplit).map(([key, pct]: [string, any]) => (
               <div key={key} className="bg-background rounded-md p-3 text-center">
                 <div className="font-mono text-sm font-bold">{Math.floor(pool * pct / 100).toLocaleString()}</div>
                 <div className="text-[9px] text-muted-foreground capitalize">{key} ({pct}%)</div>
@@ -664,15 +676,15 @@ const AuctionResults = () => {
                 {bids.map((b: any) => (
                   <tr key={b.id} className="border-b border-border/30">
                     <td className="px-4 py-2 text-sm">{b.users?.username ?? '—'}</td>
-                    <td className="px-4 py-2 text-right font-mono text-sm">{b.bid_value}</td>
+                    <td className="px-4 py-2 text-right font-mono text-sm">{b.bid_amount}</td>
                     <td className="px-4 py-2 text-center">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                        b.is_winner ? 'bg-gold-subtle text-primary' : b.is_burned ? 'bg-pngwin-red/10 text-pngwin-red' : 'bg-pngwin-green/10 text-pngwin-green'
+                        b.is_winning ? 'bg-gold-subtle text-primary' : b.is_burned ? 'bg-pngwin-red/10 text-pngwin-red' : 'bg-pngwin-green/10 text-pngwin-green'
                       }`}>
-                        {b.is_winner ? '🏆 WINNER' : b.is_burned ? 'BURNED' : 'UNIQUE'}
+                        {b.is_winning ? '🏆 WINNER' : b.is_burned ? 'BURNED' : 'UNIQUE'}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-right font-mono text-sm text-muted-foreground">{b.position ?? '—'}</td>
+                    <td className="px-4 py-2 text-right font-mono text-sm text-muted-foreground">{b.bid_position ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -701,12 +713,12 @@ const AuctionResults = () => {
                   <span className="font-display font-bold text-sm">{config?.name}</span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {inst.resolved_at ? new Date(inst.resolved_at).toLocaleDateString() : ''} • {inst.total_bids} bids
+                  {inst.actual_end ? new Date(inst.actual_end).toLocaleDateString() : ''} • {inst.total_bids} bids
                 </div>
               </div>
               <div className="text-right">
                 <div className="font-mono text-sm font-bold text-primary">{Number(inst.prize_pool).toLocaleString()} {config?.currency}</div>
-                {inst.winning_number && <div className="font-mono text-xs text-muted-foreground">Win: {inst.winning_number}</div>}
+                {inst.winning_amount && <div className="font-mono text-xs text-muted-foreground">Win: {inst.winning_amount}</div>}
               </div>
             </div>
           </button>
