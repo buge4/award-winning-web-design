@@ -86,12 +86,14 @@ const AdminPage = () => {
     if (authLoading) return;
     if (!user) { setChecking(false); setIsAdmin(false); return; }
     setChecking(true);
+    console.log('[AdminPage] Auth user ID:', user.id);
     supabase
       .from('users')
       .select('role')
       .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
+      .maybeSingle()
+      .then(({ data, error }) => {
+        console.log('[AdminPage] Users query result:', data, error);
         setIsAdmin(!!data && ['admin', 'super_admin'].includes(data.role));
         setChecking(false);
       });
