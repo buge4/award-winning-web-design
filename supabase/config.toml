@@ -1,0 +1,2 @@
+[functions.run-sql-migration]
+verify_jwt = false
