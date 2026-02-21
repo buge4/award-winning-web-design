@@ -346,33 +346,38 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
 
     setSubmitting(true);
     try {
-      // 1. Create config
+      // Build settings object for fields that aren't direct columns
+      const settings: Record<string, unknown> = {
+        max_bids_per_user: maxBidsPerUser ? parseInt(maxBidsPerUser) : null,
+        consecutive_limit: parseInt(consecutiveLimit),
+        revenue_split: split,
+      };
+
+      if (showLiveFields) {
+        settings.bids_to_hot = parseInt(bidsToHot);
+        settings.hot_duration_sec = parseInt(hotDuration);
+        settings.grace_period_sec = parseInt(gracePeriod);
+      }
+      if (showTimedFields) settings.total_duration_sec = parseInt(totalDuration);
+      if (showBlindCountFields) settings.total_bids_limit = parseInt(totalBidsLimit);
+      if (showFreeFields || showAirdropFields) {
+        settings.prize_amount = parseFloat(prizeAmount || '0');
+        settings.prize_description = prizeDescription;
+      }
+      if (showJackpotFields) {
+        settings.jackpot_seed = parseFloat(jackpotSeed || '0');
+        settings.prize_description = prizeDescription;
+      }
+
+      // 1. Create config — only include columns that exist in the table
       const configPayload: Record<string, unknown> = {
         name: name.trim(),
         auction_type: auctionType,
         currency,
         bid_fee: parseFloat(bidFee),
-        max_bids_per_user: maxBidsPerUser ? parseInt(maxBidsPerUser) : null,
-        consecutive_limit: parseInt(consecutiveLimit),
-        revenue_split: split,
         is_active: true,
+        settings,
       };
-
-      if (showLiveFields) {
-        configPayload.bids_to_hot = parseInt(bidsToHot);
-        configPayload.hot_duration_sec = parseInt(hotDuration);
-        configPayload.grace_period_sec = parseInt(gracePeriod);
-      }
-      if (showTimedFields) configPayload.total_duration_sec = parseInt(totalDuration);
-      if (showBlindCountFields) configPayload.total_bids_limit = parseInt(totalBidsLimit);
-      if (showFreeFields || showAirdropFields) {
-        configPayload.prize_amount = parseFloat(prizeAmount || '0');
-        configPayload.prize_description = prizeDescription;
-      }
-      if (showJackpotFields) {
-        configPayload.jackpot_seed = parseFloat(jackpotSeed || '0');
-        configPayload.prize_description = prizeDescription;
-      }
 
       const { data: config, error: configError } = await supabase
         .from('auction_configs')
