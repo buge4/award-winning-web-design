@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DUEL_ROOMS, RECENT_DUELS } from '@/data/mockData';
 import KpiCard from '@/components/KpiCard';
 import BidInput from '@/components/BidInput';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { usePvpUserStats, usePvpRecentDuels } from '@/hooks/useAuctions';
 
 type DuelTab = 'open' | 'my' | 'live' | 'settled';
 
@@ -31,6 +34,9 @@ const LIVE_DUELS: OpenDuel[] = [
 ];
 
 const PvpArena = () => {
+  const { user } = useAuth();
+  const { stats: pvpStats } = usePvpUserStats();
+  const { duels: recentDuelsDb } = usePvpRecentDuels();
   const [modalRoom, setModalRoom] = useState<typeof DUEL_ROOMS[0] | null>(null);
   const [bidValue, setBidValue] = useState('');
   const [duelTab, setDuelTab] = useState<DuelTab>('open');
@@ -40,15 +46,35 @@ const PvpArena = () => {
   const [liveDuelPhase, setLiveDuelPhase] = useState<'bid' | 'reveal' | 'result'>('bid');
   const [revealDigits, setRevealDigits] = useState(['?', '?', '?', '?']);
 
-  const handlePlaceBid = () => {
-    if (!modalRoom) return;
-    toast.success(`Bid placed in ${modalRoom.fee} PNGWIN room! Waiting for opponent...`);
+  const handlePlaceBid = async () => {
+    if (!modalRoom || !user) return;
+    const { data, error } = await supabase.rpc('enter_pvp_duel', {
+      p_room_id: modalRoom.id,
+      p_user_id: user.id,
+      p_bid_value: parseFloat(bidValue),
+    });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(`Bid placed in ${modalRoom.fee} PNGWIN room! Waiting for opponent...`);
+    }
     setModalRoom(null);
     setBidValue('');
   };
 
-  const handleCreateDuel = () => {
-    toast.success(`Duel created for ${createStake} PNGWIN! Waiting for challenger...`);
+  const handleCreateDuel = async () => {
+    if (!user) { toast.error('Sign in first'); return; }
+    const { data, error } = await supabase.rpc('get_or_create_pvp_room', {
+      p_stake: parseFloat(createStake),
+      p_room_type: 'duel',
+      p_crypto_symbol: 'BTC',
+      p_project_slug: 'auction',
+    });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(`Duel created for ${createStake} PNGWIN! Waiting for challenger...`);
+    }
     setShowCreateDuel(false);
     setCreateStake('');
   };

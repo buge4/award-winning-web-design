@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import KpiCard from '@/components/KpiCard';
-
+import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { useTournaments } from '@/hooks/useAuctions';
 type TournamentStatus = 'open' | 'live' | 'completed';
 
 interface Tournament {
@@ -33,7 +36,24 @@ const statusStyles: Record<TournamentStatus, { bg: string; text: string; label: 
 
 const TournamentsPage = () => {
   const [tab, setTab] = useState<TournamentStatus | 'all'>('all');
-  const filtered = tab === 'all' ? TOURNAMENTS : TOURNAMENTS.filter(t => t.status === tab);
+  const { tournaments: dbTournaments, loading } = useTournaments();
+
+  // Map DB tournaments or fall back to mock
+  const allTournaments: Tournament[] = dbTournaments.length > 0
+    ? dbTournaments.map((t: any) => ({
+        id: t.id,
+        name: t.name ?? 'Tournament',
+        bracketSize: t.size ?? t.bracket_size ?? 16,
+        entryFee: t.entry_fee ?? 50,
+        prizePool: t.prize_pool ?? 0,
+        playersJoined: t.players_joined ?? 0,
+        status: t.status === 'open' ? 'open' : t.status === 'live' || t.status === 'in_progress' ? 'live' : 'completed',
+        startTime: t.starts_at ? new Date(t.starts_at).toLocaleString() : '—',
+        icon: '🏆',
+      }))
+    : TOURNAMENTS;
+
+  const filtered = tab === 'all' ? allTournaments : allTournaments.filter(t => t.status === tab);
 
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0">

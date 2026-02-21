@@ -59,7 +59,7 @@ export const useAuctions = (activeOnly = false) => {
       .order('created_at', { ascending: false });
 
     if (activeOnly) {
-      query = query.in('status', ['accumulating', 'hot_mode', 'grace_period']);
+      query = query.in('status', ['scheduled', 'accumulating', 'hot_mode', 'grace_period']);
     }
 
     query.then(({ data, error }) => {
@@ -200,7 +200,49 @@ export const usePlaceBid = () => {
   return { placeBid };
 };
 
-/** Fetch leaderboard from project_members + users */
+/** Fetch leaderboard for a specific auction */
+export const useAuctionLeaderboard = (instanceId?: string) => {
+  const { user } = useAuth();
+  const [entries, setEntries] = useState<Array<{
+    rank: number; username: string; bid_amount: number; is_unique: boolean;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!instanceId || !user) { setLoading(false); return; }
+    supabase.rpc('get_auction_leaderboard', {
+      p_instance_id: instanceId,
+      p_user_id: user.id,
+    }).then(({ data, error }) => {
+      if (data) setEntries(data);
+      setLoading(false);
+      if (error) console.error('useAuctionLeaderboard error:', error.message);
+    });
+  }, [instanceId, user]);
+
+  return { entries, loading };
+};
+
+/** Fetch burned values count for an auction */
+export const useAuctionBurnedValues = (instanceId?: string) => {
+  const [count, setCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!instanceId) { setLoading(false); return; }
+    supabase.rpc('get_auction_burned_values_count', {
+      p_instance_id: instanceId,
+    }).then(({ data, error }) => {
+      if (data !== null) setCount(Number(data));
+      setLoading(false);
+      if (error) console.error('useAuctionBurnedValues error:', error.message);
+    });
+  }, [instanceId]);
+
+  return { count, loading };
+};
+
+/** Fetch platform leaderboard from project_members + users */
 export const useLeaderboard = () => {
   const [entries, setEntries] = useState<Array<{
     rank: number; username: string; initials: string;
@@ -270,4 +312,176 @@ export const useProfile = () => {
   }, [user]);
 
   return { profile, loading };
+};
+
+/** Fetch social circle summary */
+export const useSocialCircleSummary = () => {
+  const { user } = useAuth();
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    supabase.rpc('get_social_circle_summary', {
+      p_user_id: user.id,
+    }).then(({ data, error }) => {
+      if (data) setSummary(data);
+      setLoading(false);
+      if (error) console.error('useSocialCircleSummary error:', error.message);
+    });
+  }, [user]);
+
+  return { summary, loading };
+};
+
+/** Fetch user badges with progress */
+export const useUserBadges = () => {
+  const { user } = useAuth();
+  const [badges, setBadges] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    supabase.rpc('get_user_badges_with_progress', {
+      p_user_id: user.id,
+    }).then(({ data, error }) => {
+      if (data) setBadges(data);
+      setLoading(false);
+      if (error) console.error('useUserBadges error:', error.message);
+    });
+  }, [user]);
+
+  return { badges, loading };
+};
+
+/** Fetch user weekly activity */
+export const useWeeklyActivity = () => {
+  const { user } = useAuth();
+  const [activity, setActivity] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    supabase.rpc('get_user_weekly_activity', {
+      p_user_id: user.id,
+    }).then(({ data, error }) => {
+      if (data) setActivity(data);
+      setLoading(false);
+      if (error) console.error('useWeeklyActivity error:', error.message);
+    });
+  }, [user]);
+
+  return { activity, loading };
+};
+
+/** Fetch public platform stats */
+export const usePlatformStats = () => {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.rpc('public_platform_stats').then(({ data, error }) => {
+      if (data) setStats(data);
+      setLoading(false);
+      if (error) console.error('usePlatformStats error:', error.message);
+    });
+  }, []);
+
+  return { stats, loading };
+};
+
+/** PvP hooks */
+export const usePvpRooms = () => {
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from('pvp_rooms')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (data) setRooms(data);
+        setLoading(false);
+        if (error) console.error('usePvpRooms error:', error.message);
+      });
+  }, []);
+
+  return { rooms, loading };
+};
+
+export const usePvpUserStats = () => {
+  const { user } = useAuth();
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    supabase.rpc('get_pvp_user_stats', {
+      p_user_id: user.id,
+    }).then(({ data, error }) => {
+      if (data) setStats(data);
+      setLoading(false);
+      if (error) console.error('usePvpUserStats error:', error.message);
+    });
+  }, [user]);
+
+  return { stats, loading };
+};
+
+export const usePvpRecentDuels = () => {
+  const [duels, setDuels] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.rpc('get_pvp_recent_duels', {
+      p_limit: 20,
+    }).then(({ data, error }) => {
+      if (data) setDuels(data);
+      setLoading(false);
+      if (error) console.error('usePvpRecentDuels error:', error.message);
+    });
+  }, []);
+
+  return { duels, loading };
+};
+
+/** Tournament hooks */
+export const useTournaments = () => {
+  const [tournaments, setTournaments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from('tournaments')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (data) setTournaments(data);
+        setLoading(false);
+        if (error) console.error('useTournaments error:', error.message);
+      });
+  }, []);
+
+  return { tournaments, loading };
+};
+
+/** Jackpot history */
+export const useJackpotHistory = () => {
+  const { user } = useAuth();
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    supabase.rpc('get_weekly_jackpot_history', {
+      p_user_id: user.id,
+    }).then(({ data, error }) => {
+      if (data) setHistory(data);
+      setLoading(false);
+      if (error) console.error('useJackpotHistory error:', error.message);
+    });
+  }, [user]);
+
+  return { history, loading };
 };

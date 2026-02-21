@@ -89,17 +89,11 @@ const AdminPage = () => {
     if (authLoading) return;
     if (!user) { setChecking(false); setIsAdmin(false); return; }
     setChecking(true);
-    console.log('[AdminPage] Auth user ID:', user.id);
-    supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        console.log('[AdminPage] Users query result:', data, error);
-        setIsAdmin(!!data && ['admin', 'super_admin'].includes(data.role));
-        setChecking(false);
-      });
+    supabase.rpc('get_my_role').then(({ data, error }) => {
+      console.log('[AdminPage] get_my_role result:', data, error);
+      setIsAdmin(!!data && ['admin', 'super_admin'].includes(data));
+      setChecking(false);
+    });
   }, [user, authLoading]);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -227,19 +221,20 @@ const ManageAuctions = () => {
 
   useEffect(() => { fetchInstances(); }, []);
 
-  const handleEnd = async (id: string) => {
-    const { error } = await supabase.from('auction_instances').update({ status: 'closed', actual_end: new Date().toISOString() }).eq('id', id);
-    if (error) toast.error(error.message); else { toast.success('Auction ended'); fetchInstances(); }
+  const handleAction = async (id: string, action: string, label: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.rpc('admin_auction_action', {
+      p_admin_id: user?.id,
+      p_instance_id: id,
+      p_action: action,
+      p_value: null,
+    });
+    if (error) toast.error(error.message); else { toast.success(`Auction ${label}!`); fetchInstances(); }
   };
 
   const handleResolve = async (id: string) => {
-    const { error } = await supabase.rpc('resolve_auction', { p_instance_id: id });
+    const { error } = await supabase.rpc('resolve_auction_inline', { p_instance_id: id });
     if (error) toast.error(error.message); else { toast.success('Auction resolved!'); fetchInstances(); }
-  };
-
-  const handleCancel = async (id: string) => {
-    const { error } = await supabase.from('auction_instances').update({ status: 'cancelled' }).eq('id', id);
-    if (error) toast.error(error.message); else { toast.success('Auction cancelled'); fetchInstances(); }
   };
 
   const handleDelete = async (id: string, totalBids: number) => {
@@ -288,13 +283,13 @@ const ManageAuctions = () => {
                   <td className="px-5 py-3 text-xs text-muted-foreground">{new Date(inst.created_at).toLocaleDateString()}</td>
                   <td className="px-5 py-3 text-right space-x-2">
                     {['accumulating', 'hot_mode', 'grace_period'].includes(inst.status) && (
-                      <button onClick={() => handleEnd(inst.id)} className="text-xs text-pngwin-orange hover:text-pngwin-orange/80">Close</button>
+                      <button onClick={() => handleAction(inst.id, 'end', 'closed')} className="text-xs text-pngwin-orange hover:text-pngwin-orange/80">Close</button>
                     )}
                     {inst.status === 'closed' && (
                       <button onClick={() => handleResolve(inst.id)} className="text-xs text-ice hover:text-ice/80">Resolve</button>
                     )}
                     {!['resolved', 'cancelled'].includes(inst.status) && (
-                      <button onClick={() => handleCancel(inst.id)} className="text-xs text-pngwin-red hover:text-pngwin-red/80">Cancel</button>
+                      <button onClick={() => handleAction(inst.id, 'cancel', 'cancelled')} className="text-xs text-pngwin-red hover:text-pngwin-red/80">Cancel</button>
                     )}
                     {inst.total_bids === 0 && (
                       <button onClick={() => handleDelete(inst.id, inst.total_bids)} className="text-xs text-muted-foreground hover:text-foreground">Delete</button>
@@ -350,72 +345,33 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
     try {
       const { user } = (await supabase.auth.getUser()).data;
 
-      // 1. Create config with exact column names
       const prizeType = auctionType === 'jackpot' ? 'jackpot'
         : auctionType === 'free' ? 'manual'
         : 'pool_funded';
 
-      const configPayload: Record<string, unknown> = {
-        name: name.trim(),
-        slug: name.trim().toLowerCase().replace(/\s+/g, '-'),
-        auction_type: auctionType,
-        currency,
-        bid_fee: parseFloat(bidFee),
-        min_bid_value: parseFloat(minBidValue),
-        max_bid_value: parseFloat(maxBidValue),
-        bid_precision: 2,
-        max_bids_per_player: maxBidsPerPlayer ? parseInt(maxBidsPerPlayer) : null,
-        consecutive_limit: parseInt(consecutiveLimit),
-        prize_type: prizeType,
-        prize_pool_pct: split.winner,
-        platform_pct: split.platform,
-        burn_pct: split.burn,
-        social_circle_pct: split.social,
-        rollover_pct: split.rollover,
-        created_by: user?.id ?? null,
-        is_template: false,
-      };
+      const { data, error } = await supabase.rpc('admin_create_auction', {
+        p_admin_id: user?.id,
+        p_name: name.trim(),
+        p_slug: name.trim().toLowerCase().replace(/\s+/g, '-'),
+        p_auction_type: auctionType,
+        p_bid_fee: parseFloat(bidFee),
+        p_min_bid_value: parseFloat(minBidValue),
+        p_max_bid_value: parseFloat(maxBidValue),
+        p_duration_seconds: showTimedFields ? parseInt(totalDuration) : null,
+        p_total_bids_to_hot: showLiveFields ? parseInt(bidsToHot) : null,
+        p_hot_mode_duration_seconds: showLiveFields ? parseInt(hotDuration) : null,
+        p_total_bids_to_close: showBlindCountFields ? parseInt(totalBidsLimit) : null,
+        p_prize_type: prizeType,
+        p_manual_prize_title: showFreeFields ? prizeDescription : null,
+        p_jackpot_seed: showJackpotFields ? parseFloat(jackpotSeed || '0') : 0,
+        p_split_prize_pct: split.winner,
+        p_split_burn_pct: split.burn,
+        p_split_house_pct: split.platform,
+        p_split_social_pct: split.social,
+        p_split_jackpot_pct: split.rollover,
+      });
 
-      if (showLiveFields) {
-        configPayload.total_bids_to_hot = parseInt(bidsToHot);
-        configPayload.hot_mode_duration_seconds = parseInt(hotDuration);
-      }
-      if (showTimedFields) configPayload.auction_duration_seconds = parseInt(totalDuration);
-      if (showBlindCountFields) configPayload.total_bids_to_close = parseInt(totalBidsLimit);
-      if (showFreeFields) {
-        configPayload.manual_prize_value = parseFloat(prizeAmount || '0');
-        configPayload.manual_prize_title = prizeDescription;
-        configPayload.manual_prize_description = prizeDescription;
-      }
-      if (showJackpotFields) {
-        configPayload.jackpot_seed = parseFloat(jackpotSeed || '0');
-        configPayload.manual_prize_description = prizeDescription;
-      }
-
-      const { data: config, error: configError } = await supabase
-        .from('auction_configs')
-        .insert(configPayload)
-        .select()
-        .single();
-
-      if (configError) throw configError;
-
-      // 2. Create instance with exact column names
-      const { error: instError } = await supabase
-        .from('auction_instances')
-        .insert({
-          config_id: config.id,
-          status: 'accumulating',
-          total_bids: 0,
-          unique_bidders: 0,
-          total_bid_fees: 0,
-          prize_pool: 0,
-          burned_amount: 0,
-        })
-        .select()
-        .single();
-
-      if (instError) throw instError;
+      if (error) throw error;
 
       toast.success(`Auction "${name}" created!`);
       onCreated();
@@ -768,7 +724,7 @@ const UserManagement = () => {
     const { error } = await supabase.rpc('create_ledger_event', {
       p_user_id: creditModal.userId,
       p_event_type: 'ADMIN_CREDIT',
-      p_amount: parseFloat(creditAmount),
+      p_gross_amount: parseFloat(creditAmount),
       p_direction: creditDirection,
       p_source_project: 'auction',
       p_source_reference: 'admin_' + Date.now(),
