@@ -24,17 +24,19 @@ const AuctionDetail = () => {
       toast.error('Sign in to place a bid');
       return;
     }
-    const { success, message } = await placeBid(auction.id, value);
-    if (success) {
-      if (isJackpot) {
+    const result = await placeBid(auction.id, value);
+    if (result.success) {
+      if (result.is_burned) {
+        toast(`🔥 Bid ${value} burned — duplicate value!`);
+      } else if (isJackpot) {
         toast(`✅ Bid ${value} sealed — pending resolution.`);
       } else {
-        toast(`✅ Bid ${value} placed!`);
+        toast(`✅ Bid ${value} placed! ${result.position ? `Position #${result.position}` : ''}`);
       }
       refetchBids();
       refetchAuction();
     } else {
-      toast.error(message);
+      toast.error(result.message);
     }
   };
 

@@ -238,7 +238,7 @@ export const useMyBids = (auctionId?: string) => {
 export const usePlaceBid = () => {
   const { user } = useAuth();
 
-  const placeBid = async (instanceId: string, bidValue: string): Promise<{ success: boolean; message: string }> => {
+  const placeBid = async (instanceId: string, bidValue: string): Promise<{ success: boolean; message: string; is_burned?: boolean; position?: number }> => {
     if (!user) return { success: false, message: 'You must be signed in to bid.' };
 
     const numericValue = parseFloat(bidValue);
@@ -251,7 +251,19 @@ export const usePlaceBid = () => {
     if (error) {
       return { success: false, message: error.message };
     }
-    return { success: true, message: `Bid ${bidValue} placed!` };
+
+    // RPC returns jsonb: { success, bid_id, is_burned, position, message }
+    const result = data as { success: boolean; message: string; is_burned?: boolean; position?: number } | null;
+    if (result && !result.success) {
+      return { success: false, message: result.message };
+    }
+
+    return {
+      success: true,
+      message: result?.message ?? `Bid ${bidValue} placed!`,
+      is_burned: result?.is_burned,
+      position: result?.position ?? undefined,
+    };
   };
 
   return { placeBid };
