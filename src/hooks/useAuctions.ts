@@ -110,7 +110,8 @@ export const useAuctions = (activeOnly = false) => {
 export const useAuctionDetail = (instanceId?: string) => {
   const [auction, setAuction] = useState<Auction | null>(null);
   const [loading, setLoading] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statusRef = useRef<string | null>(null);
+  const typeRef = useRef<string | null>(null);
 
   const fetchAuction = useCallback(() => {
     if (!instanceId) { setLoading(false); return; }
@@ -122,7 +123,10 @@ export const useAuctionDetail = (instanceId?: string) => {
       .single()
       .then(({ data, error }) => {
         if (data) {
-          setAuction(mapRow(data as Record<string, unknown>));
+          const mapped = mapRow(data as Record<string, unknown>);
+          statusRef.current = mapped.status;
+          typeRef.current = mapped.type;
+          setAuction(mapped);
         }
         setLoading(false);
         if (error) console.error('useAuctionDetail error:', error.message);
@@ -133,26 +137,21 @@ export const useAuctionDetail = (instanceId?: string) => {
     fetchAuction();
   }, [fetchAuction]);
 
-  // Poll every 2s during hot_mode or timed to keep countdown live
+  // Poll every 3s to keep countdown live and detect status changes
   useEffect(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-
-    const needsPolling = auction && (
-      auction.status === 'hot_mode' ||
-      (auction.status === 'accumulating' && auction.type === 'timed') ||
-      auction.status === 'grace_period'
-    );
-
-    if (needsPolling) {
-      intervalRef.current = setInterval(() => {
+    const interval = setInterval(() => {
+      const s = statusRef.current;
+      const t = typeRef.current;
+      const needsPolling = s === 'hot_mode' || s === 'grace_period' ||
+        (s === 'accumulating' && t === 'timed') ||
+        s === 'accumulating'; // also poll accumulating to detect hot_mode transition
+      if (needsPolling) {
         fetchAuction();
-      }, 2000);
-    }
+      }
+    }, 3000);
 
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [auction?.status, auction?.type, fetchAuction]);
+    return () => clearInterval(interval);
+  }, [fetchAuction]);
 
   return { auction, loading, refetch: fetchAuction };
 };
