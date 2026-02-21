@@ -10,28 +10,24 @@ const mapRow = (row: Record<string, unknown>): Auction => {
 
   // Map DB auction_type to our local AuctionType
   const typeMap: Record<string, Auction['type']> = {
-    live: 'live',
+    live_before_hot: 'live_before_hot',
     timed: 'timed',
-    blind_count: 'blind',
-    blind_timer: 'blind',
+    blind_count: 'blind_count',
+    blind_timed: 'blind_timed',
     free: 'free',
-    jackpot_huba: 'jackpot',
-    jackpot_rng: 'rng',
-    airdrop_random: 'free',
-    airdrop_split: 'free',
+    jackpot: 'jackpot',
   };
   const type = typeMap[rawType] ?? (rawType as Auction['type']);
 
   const statusMap: Record<string, Auction['status']> = {
-    scheduled: 'accumulating',
     accumulating: 'accumulating',
-    hot: 'hot',
-    live: 'active',
-    ended: 'ended',
-    resolved: 'settled',
-    cancelled: 'ended',
+    hot_mode: 'hot_mode',
+    grace_period: 'grace_period',
+    closed: 'closed',
+    resolved: 'resolved',
+    cancelled: 'cancelled',
   };
-  const status = statusMap[String(row.status)] ?? (row.status as Auction['status']) ?? 'active';
+  const status = statusMap[String(row.status)] ?? (row.status as Auction['status']) ?? 'accumulating';
 
   return {
     id: String(row.id),
@@ -43,7 +39,7 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     bidCost: Number(config.bid_fee ?? 10),
     uniqueBids: Number(row.unique_bidders ?? 0),
     burnedBids: Number(row.burned_amount ?? 0),
-    icon: type === 'rng' ? '🎲' : type === 'jackpot' ? '🎰' : type === 'free' ? '🎁' : type === 'blind' ? '🙈' : type === 'timed' ? '⏱️' : '🎯',
+    icon: type === 'jackpot' ? '🎰' : type === 'free' ? '🎁' : type === 'blind_count' || type === 'blind_timed' ? '🙈' : type === 'timed' ? '⏱️' : '🎯',
     timeRemaining: row.time_remaining ? String(row.time_remaining) : undefined,
     bidTarget: config.total_bids_to_hot ? Number(config.total_bids_to_hot) : undefined,
     rolloverWeek: row.rollover_week ? Number(row.rollover_week) : undefined,
@@ -63,7 +59,7 @@ export const useAuctions = (activeOnly = false) => {
       .order('created_at', { ascending: false });
 
     if (activeOnly) {
-      query = query.in('status', ['accumulating', 'hot', 'live', 'scheduled']);
+      query = query.in('status', ['accumulating', 'hot_mode', 'grace_period']);
     }
 
     query.then(({ data, error }) => {

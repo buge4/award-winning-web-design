@@ -1,5 +1,5 @@
-export type AuctionType = 'live' | 'timed' | 'blind' | 'free' | 'jackpot' | 'rng';
-export type AuctionStatus = 'accumulating' | 'hot' | 'active' | 'ended' | 'settled';
+export type AuctionType = 'live_before_hot' | 'timed' | 'blind_count' | 'blind_timed' | 'free' | 'jackpot';
+export type AuctionStatus = 'accumulating' | 'hot_mode' | 'grace_period' | 'closed' | 'resolved' | 'cancelled';
 
 export interface Auction {
   id: string;
@@ -58,7 +58,7 @@ export const AUCTIONS: Auction[] = [
   {
     id: 'live-1',
     title: 'Arctic Rush #47',
-    type: 'live',
+    type: 'live_before_hot',
     status: 'accumulating',
     prizePool: 12450,
     bidCount: 67,
@@ -71,8 +71,8 @@ export const AUCTIONS: Auction[] = [
   {
     id: 'live-2',
     title: 'Penguin Showdown #12',
-    type: 'live',
-    status: 'hot',
+    type: 'live_before_hot',
+    status: 'hot_mode',
     prizePool: 28750,
     bidCount: 134,
     bidTarget: 100,
@@ -86,7 +86,7 @@ export const AUCTIONS: Auction[] = [
     id: 'timed-1',
     title: 'Quick Freeze 15m',
     type: 'timed',
-    status: 'active',
+    status: 'accumulating',
     prizePool: 3200,
     bidCount: 45,
     timeRemaining: '11:23',
@@ -98,8 +98,8 @@ export const AUCTIONS: Auction[] = [
   {
     id: 'blind-1',
     title: 'Shadow Auction #8',
-    type: 'blind',
-    status: 'active',
+    type: 'blind_count',
+    status: 'accumulating',
     prizePool: 8900,
     bidCount: 89,
     bidCost: 10,
@@ -111,7 +111,7 @@ export const AUCTIONS: Auction[] = [
     id: 'free-1',
     title: 'Welcome Freeroll',
     type: 'free',
-    status: 'active',
+    status: 'accumulating',
     prizePool: 500,
     bidCount: 23,
     timeRemaining: '45:00',
@@ -122,7 +122,7 @@ export const AUCTIONS: Auction[] = [
   },
   {
     id: 'jackpot-1',
-    title: 'MEGA JACKPOT HUBA',
+    title: 'MEGA JACKPOT',
     type: 'jackpot',
     status: 'accumulating',
     prizePool: 125000,
@@ -134,19 +134,6 @@ export const AUCTIONS: Auction[] = [
     icon: '🎰',
     rolloverWeek: 4,
     rolloverHistory: [5000, 15000, 45000, 125000],
-  },
-  {
-    id: 'rng-1',
-    title: 'Lucky Number Weekly',
-    type: 'rng',
-    status: 'active',
-    prizePool: 62500,
-    bidCount: 567,
-    bidCost: 10,
-    uniqueBids: 320,
-    burnedBids: 247,
-    icon: '🎲',
-    timeRemaining: '2d 14h',
   },
 ];
 

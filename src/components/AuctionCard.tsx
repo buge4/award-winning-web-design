@@ -3,21 +3,21 @@ import { motion } from 'framer-motion';
 import type { Auction } from '@/data/mockData';
 
 const typeStyles: Record<string, { border: string; badge: string; badgeBg: string }> = {
-  live: { border: 'border-gold', badge: 'text-primary', badgeBg: 'bg-gold-subtle' },
+  live_before_hot: { border: 'border-gold', badge: 'text-primary', badgeBg: 'bg-gold-subtle' },
   timed: { border: 'border-ice', badge: 'text-ice', badgeBg: 'bg-ice-subtle' },
-  blind: { border: 'border-border-active', badge: 'text-pngwin-purple', badgeBg: 'bg-purple-subtle' },
+  blind_count: { border: 'border-border-active', badge: 'text-pngwin-purple', badgeBg: 'bg-purple-subtle' },
+  blind_timed: { border: 'border-border-active', badge: 'text-pngwin-purple', badgeBg: 'bg-purple-subtle' },
   free: { border: 'border-border', badge: 'text-pngwin-green', badgeBg: 'bg-green-subtle' },
   jackpot: { border: 'border-gold glow-gold', badge: 'text-primary', badgeBg: 'bg-gold-subtle' },
-  rng: { border: 'border-ice glow-ice', badge: 'text-ice', badgeBg: 'bg-ice-subtle' },
 };
 
 const typeLabels: Record<string, string> = {
-  live: 'LIVE',
+  live_before_hot: 'LIVE',
   timed: 'TIMED',
-  blind: 'BLIND',
+  blind_count: 'BLIND',
+  blind_timed: 'BLIND',
   free: 'FREE',
   jackpot: 'JACKPOT',
-  rng: 'RNG',
 };
 
 const AuctionCard = ({ auction }: { auction: Auction }) => {
@@ -30,7 +30,7 @@ const AuctionCard = ({ auction }: { auction: Auction }) => {
         className={`bg-card border ${style.border} rounded-lg p-5 cursor-pointer transition-colors hover:bg-card-hover relative overflow-hidden`}
       >
         {/* Hot mode glow */}
-        {auction.status === 'hot' && (
+        {auction.status === 'hot_mode' && (
           <div className="absolute inset-0 animate-hot rounded-lg pointer-events-none" />
         )}
 
@@ -41,7 +41,7 @@ const AuctionCard = ({ auction }: { auction: Auction }) => {
             <h3 className="font-display font-bold text-sm">{auction.title}</h3>
           </div>
           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase ${style.badge} ${style.badgeBg} border ${style.border}`}>
-            {auction.status === 'hot' ? '🔥 HOT MODE' : typeLabels[auction.type]}
+            {auction.status === 'hot_mode' ? '🔥 HOT MODE' : typeLabels[auction.type]}
           </span>
         </div>
 
@@ -62,7 +62,7 @@ const AuctionCard = ({ auction }: { auction: Auction }) => {
         </div>
 
         {/* Type-specific bottom */}
-        {auction.type === 'live' && auction.status === 'accumulating' && auction.bidTarget && (
+        {auction.type === 'live_before_hot' && auction.status === 'accumulating' && auction.bidTarget && (
           <div>
             <div className="flex justify-between text-[11px] mb-1.5">
               <span className="text-muted-foreground">Bids to Hot Mode</span>
@@ -77,7 +77,7 @@ const AuctionCard = ({ auction }: { auction: Auction }) => {
           </div>
         )}
 
-        {auction.status === 'hot' && auction.timeRemaining && (
+        {auction.status === 'hot_mode' && auction.timeRemaining && (
           <div className="text-center">
             <div className="font-mono text-3xl font-bold text-pngwin-red animate-pulse-glow">{auction.timeRemaining}</div>
             <div className="text-[10px] text-pngwin-red">Every bid extends +30s</div>
@@ -91,7 +91,7 @@ const AuctionCard = ({ auction }: { auction: Auction }) => {
           </div>
         )}
 
-        {auction.type === 'blind' && (
+        {(auction.type === 'blind_count' || auction.type === 'blind_timed') && (
           <div className="text-center">
             <div className="font-mono text-xl font-bold text-pngwin-purple">???</div>
             <div className="text-[10px] text-muted-foreground">End condition hidden</div>
@@ -119,16 +119,6 @@ const AuctionCard = ({ auction }: { auction: Auction }) => {
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {auction.type === 'rng' && (
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[10px] text-muted-foreground">Draw in</div>
-              <div className="font-mono text-sm font-bold text-ice">{auction.timeRemaining}</div>
-            </div>
-            <div className="text-[10px] text-pngwin-orange font-semibold">5 prizes to win!</div>
           </div>
         )}
 

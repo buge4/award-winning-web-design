@@ -80,8 +80,8 @@ const RngLiveDraw = () => {
   const replayWeek = isReplay ? Number(location.pathname.split('/draws/')[1]?.split('/')[0]) : null;
 
   const auction = isDemo
-    ? { prizePool: 62500, bidCount: 567, uniqueBids: 320, burnedBids: 247, title: 'Demo Draw', icon: '🎲', type: 'rng' as const }
-    : AUCTIONS.find((a) => a.id === id) || AUCTIONS.find(a => a.type === 'rng') || AUCTIONS[0];
+    ? { prizePool: 62500, bidCount: 567, uniqueBids: 320, burnedBids: 247, title: 'Demo Draw', icon: '🎰', type: 'jackpot' as const }
+    : AUCTIONS.find((a) => a.id === id) || AUCTIONS.find(a => a.type === 'jackpot') || AUCTIONS[0];
 
   // Pick results based on mode
   let drawResults: DrawPrize[];
