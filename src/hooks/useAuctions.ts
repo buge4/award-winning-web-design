@@ -29,12 +29,18 @@ const mapRow = (row: Record<string, unknown>): Auction => {
   };
   const status = statusMap[String(row.status)] ?? (row.status as Auction['status']) ?? 'accumulating';
 
+  // Compute prize pool: use DB value, or derive from bid fees × prize_pool_pct
+  const dbPrizePool = Number(row.prize_pool ?? 0);
+  const totalBidFees = Number(row.total_bid_fees ?? 0);
+  const prizePoolPct = Number(config.prize_pool_pct ?? 55) / 100;
+  const computedPrizePool = dbPrizePool > 0 ? dbPrizePool : Math.floor(totalBidFees * prizePoolPct);
+
   return {
     id: String(row.id),
     title: String(config.name ?? row.title ?? 'Auction'),
     type,
     status,
-    prizePool: Number(row.prize_pool ?? 0),
+    prizePool: computedPrizePool,
     bidCount: Number(row.total_bids ?? 0),
     bidCost: Number(config.bid_fee ?? 10),
     uniqueBids: Number(row.unique_bidders ?? 0),
