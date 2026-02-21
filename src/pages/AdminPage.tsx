@@ -7,30 +7,25 @@ import { useAuth } from '@/context/AuthContext';
 
 // ── Types ──────────────────────────────────────────────
 const AUCTION_TYPES = [
-  'live', 'timed', 'blind_count', 'blind_timer', 'free',
-  'jackpot_huba', 'jackpot_rng', 'airdrop_random', 'airdrop_split',
+  'live_before_hot', 'timed', 'blind_count', 'blind_timed', 'free', 'jackpot',
 ] as const;
 
 const CURRENCIES = ['PNGWIN', 'TON', 'BTC', 'ETH', 'SOL'] as const;
 
 const TYPE_META: Record<string, { icon: string; label: string; desc: string }> = {
-  live: { icon: '🎯', label: 'Live', desc: 'Accumulate → Hot Mode → Winner' },
+  live_before_hot: { icon: '🎯', label: 'Live', desc: 'Accumulate → Hot Mode → Winner' },
   timed: { icon: '⏱️', label: 'Timed', desc: 'Fixed countdown auction' },
   blind_count: { icon: '🙈', label: 'Blind (Count)', desc: 'Hidden end after X bids' },
-  blind_timer: { icon: '🙈', label: 'Blind (Timer)', desc: 'Hidden end after timer' },
+  blind_timed: { icon: '🙈', label: 'Blind (Timed)', desc: 'Hidden end after timer' },
   free: { icon: '🎁', label: 'Free', desc: 'No cost, real prizes' },
-  jackpot_huba: { icon: '🎰', label: 'Jackpot HUBA', desc: 'Sealed bids, rollover if no exact hit' },
-  jackpot_rng: { icon: '🎲', label: 'Jackpot RNG', desc: 'Sealed bids, RNG draw' },
-  airdrop_random: { icon: '🎁', label: 'Airdrop Random', desc: 'Random winner from bidders' },
-  airdrop_split: { icon: '🎁', label: 'Airdrop Split', desc: 'Prize split among bidders' },
+  jackpot: { icon: '🎰', label: 'Jackpot', desc: 'Sealed bids, rollover if no exact hit' },
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  scheduled: 'bg-muted text-muted-foreground',
   accumulating: 'bg-pngwin-orange/20 text-pngwin-orange',
-  hot: 'bg-pngwin-red/20 text-pngwin-red',
-  live: 'bg-pngwin-green/20 text-pngwin-green',
-  ended: 'bg-muted text-muted-foreground',
+  hot_mode: 'bg-pngwin-red/20 text-pngwin-red',
+  grace_period: 'bg-pngwin-green/20 text-pngwin-green',
+  closed: 'bg-muted text-muted-foreground',
   resolved: 'bg-ice/20 text-ice',
   cancelled: 'bg-pngwin-red/10 text-pngwin-red/60',
 };
@@ -233,7 +228,7 @@ const ManageAuctions = () => {
   useEffect(() => { fetchInstances(); }, []);
 
   const handleEnd = async (id: string) => {
-    const { error } = await supabase.from('auction_instances').update({ status: 'ended', actual_end: new Date().toISOString() }).eq('id', id);
+    const { error } = await supabase.from('auction_instances').update({ status: 'closed', actual_end: new Date().toISOString() }).eq('id', id);
     if (error) toast.error(error.message); else { toast.success('Auction ended'); fetchInstances(); }
   };
 
@@ -292,10 +287,10 @@ const ManageAuctions = () => {
                   <td className="px-5 py-3 text-right font-mono text-sm text-pngwin-red">{Number(inst.burned_amount).toLocaleString()}</td>
                   <td className="px-5 py-3 text-xs text-muted-foreground">{new Date(inst.created_at).toLocaleDateString()}</td>
                   <td className="px-5 py-3 text-right space-x-2">
-                    {['accumulating', 'hot', 'live'].includes(inst.status) && (
-                      <button onClick={() => handleEnd(inst.id)} className="text-xs text-pngwin-orange hover:text-pngwin-orange/80">End</button>
+                    {['accumulating', 'hot_mode', 'grace_period'].includes(inst.status) && (
+                      <button onClick={() => handleEnd(inst.id)} className="text-xs text-pngwin-orange hover:text-pngwin-orange/80">Close</button>
                     )}
-                    {inst.status === 'ended' && (
+                    {inst.status === 'closed' && (
                       <button onClick={() => handleResolve(inst.id)} className="text-xs text-ice hover:text-ice/80">Resolve</button>
                     )}
                     {!['resolved', 'cancelled'].includes(inst.status) && (
@@ -339,12 +334,11 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
   const [split, setSplit] = useState(DEFAULT_SPLIT);
   const [submitting, setSubmitting] = useState(false);
 
-  const showLiveFields = auctionType === 'live';
-  const showTimedFields = ['timed', 'blind_timer'].includes(auctionType);
+  const showLiveFields = auctionType === 'live_before_hot';
+  const showTimedFields = ['timed', 'blind_timed'].includes(auctionType);
   const showBlindCountFields = auctionType === 'blind_count';
   const showFreeFields = auctionType === 'free';
-  const showJackpotFields = ['jackpot_huba', 'jackpot_rng'].includes(auctionType);
-  const showAirdropFields = ['airdrop_random', 'airdrop_split'].includes(auctionType);
+  const showJackpotFields = auctionType === 'jackpot';
 
   const splitTotal = Object.values(split).reduce((a, b) => a + b, 0);
 
@@ -357,9 +351,9 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
       const { user } = (await supabase.auth.getUser()).data;
 
       // 1. Create config with exact column names
-      const prizeType = auctionType.startsWith('jackpot') ? 'jackpot'
-        : ['free', 'airdrop_random', 'airdrop_split'].includes(auctionType) ? 'manual'
-        : 'pool';
+      const prizeType = auctionType === 'jackpot' ? 'jackpot'
+        : auctionType === 'free' ? 'manual'
+        : 'pool_funded';
 
       const configPayload: Record<string, unknown> = {
         name: name.trim(),
@@ -388,7 +382,7 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
       }
       if (showTimedFields) configPayload.auction_duration_seconds = parseInt(totalDuration);
       if (showBlindCountFields) configPayload.total_bids_to_close = parseInt(totalBidsLimit);
-      if (showFreeFields || showAirdropFields) {
+      if (showFreeFields) {
         configPayload.manual_prize_value = parseFloat(prizeAmount || '0');
         configPayload.manual_prize_title = prizeDescription;
         configPayload.manual_prize_description = prizeDescription;
@@ -531,7 +525,7 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
           </div>
         )}
 
-        {(showFreeFields || showAirdropFields) && (
+        {showFreeFields && (
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Prize Amount</label>

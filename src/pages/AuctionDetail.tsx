@@ -16,8 +16,7 @@ const AuctionDetail = () => {
   const { bids, refetch: refetchBids } = useMyBids(id);
   const { placeBid } = usePlaceBid();
 
-  const isJackpotRng = auction.type === 'rng';
-  const isJackpotHuba = auction.type === 'jackpot';
+  const isJackpot = auction.type === 'jackpot';
 
   const handleBid = async (value: string) => {
     if (!user) {
@@ -26,8 +25,8 @@ const AuctionDetail = () => {
     }
     const { success, message } = await placeBid(auction.id, value);
     if (success) {
-      if (isJackpotRng) {
-        toast(`✅ Bid ${value} sealed — pending draw result.`);
+      if (isJackpot) {
+        toast(`✅ Bid ${value} sealed — pending resolution.`);
       } else {
         toast(`✅ Bid ${value} placed!`);
       }
@@ -60,12 +59,12 @@ const AuctionDetail = () => {
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-gold-subtle text-primary border border-gold">
                 {auction.type.toUpperCase()}
               </span>
-              {auction.status === 'hot' && (
+              {auction.status === 'hot_mode' && (
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-red-subtle text-pngwin-red border border-pngwin-red/20 animate-pulse-glow">
                   🔥 HOT MODE
                 </span>
               )}
-              {isJackpotRng && (
+              {isJackpot && (
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-purple-subtle text-pngwin-purple border border-pngwin-purple/20">
                   🎲 SEALED BIDS
                 </span>
@@ -77,7 +76,7 @@ const AuctionDetail = () => {
               )}
             </div>
           </div>
-          {isJackpotRng && auction.timeRemaining && (
+          {isJackpot && auction.timeRemaining && (
             <div className="flex gap-2">
               <Link
                 to="/auction/demo/draw"
@@ -100,7 +99,7 @@ const AuctionDetail = () => {
           <div className="lg:col-span-1 space-y-5">
             {/* Prize Pool */}
             <div className={`bg-card border rounded-lg p-6 text-center ${
-              auction.status === 'hot' ? 'border-pngwin-red/30 animate-hot' : 'border-border'
+              auction.status === 'hot_mode' ? 'border-pngwin-red/30 animate-hot' : 'border-border'
             }`}>
               <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Prize Pool</div>
               <div className="font-mono text-4xl font-bold text-primary mb-1">
@@ -109,7 +108,7 @@ const AuctionDetail = () => {
               <div className="text-sm text-muted-foreground">PNGWIN</div>
 
               {/* Live: accumulation progress */}
-              {auction.type === 'live' && auction.status === 'accumulating' && auction.bidTarget && (
+              {auction.type === 'live_before_hot' && auction.status === 'accumulating' && auction.bidTarget && (
                 <div className="mt-4">
                   <div className="text-xs text-muted-foreground mb-1">
                     {auction.bidCount}/{auction.bidTarget} bids to Hot Mode
@@ -126,7 +125,7 @@ const AuctionDetail = () => {
               )}
 
               {/* Live Hot Mode */}
-              {auction.status === 'hot' && auction.timeRemaining && (
+              {auction.status === 'hot_mode' && auction.timeRemaining && (
                 <div className="mt-4">
                   <div className="font-mono text-5xl font-bold text-pngwin-red animate-pulse-glow">
                     {auction.timeRemaining}
@@ -144,7 +143,7 @@ const AuctionDetail = () => {
               )}
 
               {/* Blind */}
-              {auction.type === 'blind' && (
+              {(auction.type === 'blind_count' || auction.type === 'blind_timed') && (
                 <div className="mt-4">
                   <div className="font-mono text-3xl font-bold text-pngwin-purple animate-pulse-glow">???</div>
                   <div className="text-xs text-muted-foreground mt-1 italic">This auction could end at any moment...</div>
@@ -160,7 +159,7 @@ const AuctionDetail = () => {
               )}
 
               {/* RNG countdown */}
-              {isJackpotRng && auction.timeRemaining && (
+              {isJackpot && auction.timeRemaining && (
                 <div className="mt-4">
                   <div className="text-xs text-muted-foreground mb-1">Draw in</div>
                   <div className="font-mono text-3xl font-bold text-ice">{auction.timeRemaining}</div>
@@ -169,7 +168,7 @@ const AuctionDetail = () => {
               )}
 
               {/* Jackpot HUBA */}
-              {isJackpotHuba && auction.rolloverHistory && (
+              {isJackpot && auction.rolloverHistory && (
                 <div className="mt-4">
                   <div className="text-xs text-muted-foreground mb-2">Rollover — Week {auction.rolloverWeek}</div>
                   <div className="flex gap-1 items-end justify-center">
@@ -189,7 +188,7 @@ const AuctionDetail = () => {
             </div>
 
             {/* Burn Counter (RNG only) */}
-            {isJackpotRng && (
+            {isJackpot && (
               <div className="bg-card border border-pngwin-red/20 rounded-lg p-5">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-xs text-muted-foreground uppercase tracking-wider">🔥 Values Burned</div>
@@ -262,7 +261,7 @@ const AuctionDetail = () => {
                       <span className="font-mono text-lg font-bold">{bid.value}</span>
                     </div>
                     <div className="flex items-center gap-4">
-                      {bid.status === 'unique' && bid.position && !isJackpotRng && (
+                      {bid.status === 'unique' && bid.position && !isJackpot && (
                         <span className="text-xs text-pngwin-green font-semibold">#{bid.position}</span>
                       )}
                       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
@@ -270,7 +269,7 @@ const AuctionDetail = () => {
                           ? 'bg-green-subtle text-pngwin-green'
                           : 'bg-red-subtle text-pngwin-red'
                       }`}>
-                        {isJackpotRng
+                        {isJackpot
                           ? bid.status === 'unique' ? '🟢 ALIVE' : '🔴 BURNED'
                           : bid.status}
                       </span>
@@ -282,7 +281,7 @@ const AuctionDetail = () => {
             </div>
 
             {/* Leaderboard (NOT for RNG/Jackpot) */}
-            {!isJackpotRng && (
+            {!isJackpot && (
               <div className="bg-card border border-border rounded-lg">
                 <div className="px-5 py-3 border-b border-border flex justify-between items-center">
                   <span className="font-display font-bold text-sm">Leaderboard</span>
@@ -307,7 +306,7 @@ const AuctionDetail = () => {
             )}
 
             {/* RNG: Prize positions instead of leaderboard */}
-            {isJackpotRng && (
+            {isJackpot && (
               <div className="bg-card border border-ice/20 rounded-lg p-5 glow-ice">
                 <div className="font-display font-bold text-sm mb-4">🎲 5 Prizes to Win!</div>
                 <div className="space-y-2">
@@ -331,7 +330,7 @@ const AuctionDetail = () => {
             )}
 
             {/* Rollover History (RNG) */}
-            {isJackpotRng && auction.type === 'rng' && (
+            {isJackpot && (
               <div className="bg-card border border-border rounded-lg p-5">
                 <div className="font-display font-bold text-sm mb-3">Rollover History</div>
                 <div className="flex items-center gap-2 text-xs">

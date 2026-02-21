@@ -7,28 +7,22 @@ import { useAuctions, useAuctionHistory } from '@/hooks/useAuctions';
 
 const tabs: { label: string; type: AuctionType | 'all' | 'history' }[] = [
   { label: 'All', type: 'all' },
-  { label: '🎯 Live', type: 'live' },
+  { label: '🎯 Live', type: 'live_before_hot' },
   { label: '⏱️ Timed', type: 'timed' },
-  { label: '🙈 Blind', type: 'blind' },
+  { label: '🙈 Blind Count', type: 'blind_count' },
+  { label: '🙈 Blind Timed', type: 'blind_timed' },
   { label: '🎁 Free', type: 'free' },
   { label: '🎰 Jackpot', type: 'jackpot' },
-  { label: '🎲 RNG', type: 'rng' },
   { label: '📜 History', type: 'history' },
 ];
 
 const TYPE_ICONS: Record<string, string> = {
-  live: '🎯',
+  live_before_hot: '🎯',
   timed: '⏱️',
-  blind: '🙈',
   blind_count: '🙈',
-  blind_timer: '🙈',
+  blind_timed: '🙈',
   free: '🎁',
   jackpot: '🎰',
-  jackpot_huba: '🎰',
-  jackpot_rng: '🎲',
-  rng: '🎲',
-  airdrop_random: '🎁',
-  airdrop_split: '🎁',
 };
 
 const AuctionsPage = () => {
