@@ -352,8 +352,6 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
         auction_type: auctionType,
         currency,
         bid_fee: parseFloat(bidFee),
-        bid_range_min: parseFloat(bidRangeMin),
-        bid_range_max: parseFloat(bidRangeMax),
         max_bids_per_user: maxBidsPerUser ? parseInt(maxBidsPerUser) : null,
         consecutive_limit: parseInt(consecutiveLimit),
         revenue_split: split,
