@@ -41,11 +41,11 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     prizePool: Number(row.prize_pool ?? 0),
     bidCount: Number(row.total_bids ?? 0),
     bidCost: Number(config.bid_fee ?? 10),
-    uniqueBids: Number(row.unique_bids ?? 0),
-    burnedBids: Number(row.burned_bids ?? 0),
+    uniqueBids: Number(row.unique_bidders ?? 0),
+    burnedBids: Number(row.burned_amount ?? 0),
     icon: type === 'rng' ? '🎲' : type === 'jackpot' ? '🎰' : type === 'free' ? '🎁' : type === 'blind' ? '🙈' : type === 'timed' ? '⏱️' : '🎯',
     timeRemaining: row.time_remaining ? String(row.time_remaining) : undefined,
-    bidTarget: config.bids_to_hot ? Number(config.bids_to_hot) : undefined,
+    bidTarget: config.total_bids_to_hot ? Number(config.total_bids_to_hot) : undefined,
     rolloverWeek: row.rollover_week ? Number(row.rollover_week) : undefined,
     rolloverHistory: row.rollover_history ? (row.rollover_history as number[]) : undefined,
   };
@@ -117,7 +117,7 @@ export const useAuctionHistory = () => {
       .from('auction_instances')
       .select('*, auction_configs(*)')
       .eq('status', 'resolved')
-      .order('resolved_at', { ascending: false })
+      .order('actual_end', { ascending: false })
       .limit(20)
       .then(({ data, error }) => {
         if (data && data.length > 0) {
@@ -125,14 +125,14 @@ export const useAuctionHistory = () => {
             id: row.id,
             title: row.auction_configs?.name ?? 'Auction',
             type: row.auction_configs?.auction_type ?? 'live',
-            date: row.resolved_at ? new Date(row.resolved_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
+            date: row.actual_end ? new Date(row.actual_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
             winner: row.winner_id ? `User ${String(row.winner_id).slice(0, 6)}` : '—',
-            winningBid: row.winning_number ? String(row.winning_number) : '—',
+            winningBid: row.winning_amount ? String(row.winning_amount) : '—',
             prizeWon: Number(row.prize_pool ?? 0),
             totalBids: Number(row.total_bids ?? 0),
-            players: 0,
-            uniqueBids: 0,
-            burnedBids: Number(row.burn_total ?? 0),
+            players: Number(row.unique_bidders ?? 0),
+            uniqueBids: Number(row.unique_bidders ?? 0),
+            burnedBids: Number(row.burned_amount ?? 0),
           })));
         }
         setLoading(false);
@@ -165,9 +165,9 @@ export const useMyBids = (auctionId?: string) => {
         setBids(
           data.map(b => ({
             id: String(b.id),
-            value: String(b.bid_value ?? b.bid_amount ?? '00.00'),
+            value: String(b.bid_amount ?? '00.00'),
             status: b.is_burned ? 'burned' : 'unique',
-            position: b.position ?? undefined,
+            position: b.bid_position ?? undefined,
             timestamp: new Date(b.created_at).toLocaleTimeString(),
           }))
         );
