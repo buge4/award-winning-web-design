@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 
@@ -12,7 +12,14 @@ const AuthPage = ({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) => {
   const [referral, setReferral] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { signUp, signIn } = useAuth();
+
+  // Capture ?ref= from URL
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) setReferral(ref);
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,7 +112,7 @@ const AuthPage = ({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) => {
                     value={referral}
                     onChange={e => setReferral(e.target.value)}
                     className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
-                    placeholder="e.g., cryptoking"
+                    placeholder="e.g., ABC123"
                   />
                 </div>
               </>

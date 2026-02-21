@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
+import { useProfile } from '@/hooks/useAuctions';
+import { supabase } from '@/lib/supabase';
 
 const SettingsPage = () => {
-  const [username, setUsername] = useState('@cryptoking');
+  const { user } = useAuth();
+  const { profile, loading } = useProfile();
+  const [username, setUsername] = useState('');
   const [notifications, setNotifications] = useState({
     wins: true,
     burns: true,
@@ -11,6 +16,28 @@ const SettingsPage = () => {
     tournaments: false,
     marketing: false,
   });
+
+  useEffect(() => {
+    if (profile) {
+      setUsername(profile.username ? `@${profile.username}` : '');
+    }
+  }, [profile]);
+
+  const initials = profile?.username ? profile.username.slice(0, 2).toUpperCase() : '??';
+
+  const handleSave = async () => {
+    if (!user) return;
+    const cleanUsername = username.replace(/^@/, '');
+    const { error } = await supabase
+      .from('users')
+      .update({ username: cleanUsername })
+      .eq('id', user.id);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Profile updated!');
+    }
+  };
 
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0">
@@ -20,32 +47,45 @@ const SettingsPage = () => {
         {/* Profile */}
         <div className="bg-card border border-border rounded-lg p-6 mb-6">
           <h2 className="font-display font-bold text-lg mb-4">Profile</h2>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 rounded-full gradient-ice flex items-center justify-center text-xl font-bold text-background">
-              BJ
-            </div>
-            <button className="px-3 py-1.5 bg-secondary border border-border rounded-md text-xs text-muted-foreground hover:text-foreground">
-              Change Avatar
-            </button>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Username</label>
-              <input
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
-              />
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => toast.success('Profile updated!')}
-              className="px-6 py-2 gradient-gold text-primary-foreground font-display font-bold text-sm rounded-lg shadow-gold"
-            >
-              Save Changes
-            </motion.button>
-          </div>
+          {loading ? (
+            <div className="text-muted-foreground text-sm">Loading...</div>
+          ) : (
+            <>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-full gradient-ice flex items-center justify-center text-xl font-bold text-background">
+                  {initials}
+                </div>
+                <div>
+                  <button className="px-3 py-1.5 bg-secondary border border-border rounded-md text-xs text-muted-foreground hover:text-foreground">
+                    Change Avatar
+                  </button>
+                  {profile?.referral_code && (
+                    <div className="text-[10px] text-muted-foreground mt-1">
+                      Referral: <span className="font-mono text-primary">{profile.referral_code}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Username</label>
+                  <input
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
+                  />
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleSave}
+                  className="px-6 py-2 gradient-gold text-primary-foreground font-display font-bold text-sm rounded-lg shadow-gold"
+                >
+                  Save Changes
+                </motion.button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Notifications */}

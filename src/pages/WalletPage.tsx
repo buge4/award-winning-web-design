@@ -65,7 +65,9 @@ const WalletPage = () => {
       .from('ledger_events')
       .select('*')
       .eq('user_id', user.id)
+      .eq('source_project', 'auction')
       .order('created_at', { ascending: false })
+      .limit(50)
       .then(({ data }) => {
         if (data) setTransactions(data as LedgerEvent[]);
         setLoadingTx(false);

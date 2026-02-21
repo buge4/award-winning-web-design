@@ -1,14 +1,18 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { AUCTIONS, PLATFORM_STATS } from '@/data/mockData';
+import { AUCTIONS as MOCK_AUCTIONS, PLATFORM_STATS } from '@/data/mockData';
 import { DRAW_HISTORY } from '@/data/drawHistory';
 import AuctionCard from '@/components/AuctionCard';
 import LiveTicker from '@/components/LiveTicker';
 import JackpotCounter from '@/components/JackpotCounter';
 import KpiCard from '@/components/KpiCard';
 import heroBg from '@/assets/hero-bg.jpg';
+import { useAuctions } from '@/hooks/useAuctions';
 
 const Index = () => {
+  const { auctions: dbAuctions, loading } = useAuctions(true);
+  const auctions = dbAuctions.length > 0 ? dbAuctions : MOCK_AUCTIONS;
+
   const latestDraw = DRAW_HISTORY.find(d => d.status === 'completed');
   const winnersCount = latestDraw ? latestDraw.draws.filter(d => d.winner).length : 0;
 
@@ -111,7 +115,7 @@ const Index = () => {
           <KpiCard label="Tokens Burned" value={PLATFORM_STATS.totalBurned} color="red" delay={0.05} />
           <KpiCard label="Total Players" value={PLATFORM_STATS.totalPlayers} color="ice" delay={0.1} />
           <KpiCard label="Online Now" value={PLATFORM_STATS.activePlayers} color="green" delay={0.15} />
-          <KpiCard label="Active Auctions" value={PLATFORM_STATS.activeAuctions} color="purple" delay={0.2} />
+          <KpiCard label="Active Auctions" value={auctions.length} color="purple" delay={0.2} />
           <KpiCard label="Biggest Win" value={PLATFORM_STATS.biggestWin} color="gold" delay={0.25} />
         </div>
       </div>
@@ -121,14 +125,18 @@ const Index = () => {
         <h2 className="font-display text-2xl font-bold mb-6 flex items-center gap-3">
           🔥 Live Auctions
           <span className="text-xs bg-pngwin-green/20 text-pngwin-green px-2.5 py-0.5 rounded-full font-semibold">
-            {AUCTIONS.length} ACTIVE
+            {auctions.length} ACTIVE
           </span>
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {AUCTIONS.map((auction) => (
-            <AuctionCard key={auction.id} auction={auction} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center py-10 text-muted-foreground text-sm">Loading auctions...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {auctions.map((auction) => (
+              <AuctionCard key={auction.id} auction={auction} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* How It Works */}
