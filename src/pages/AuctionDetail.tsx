@@ -5,7 +5,7 @@ import BidInput from '@/components/BidInput';
 import KpiCard from '@/components/KpiCard';
 import SocialCircleWidget from '@/components/SocialCircleWidget';
 import { toast } from 'sonner';
-import { useMyBids, usePlaceBid, useAuctionDetail } from '@/hooks/useAuctions';
+import { useMyBids, usePlaceBid, useAuctionDetail, useAuctionLeaderboard } from '@/hooks/useAuctions';
 import { useAuth } from '@/context/AuthContext';
 
 const AuctionDetail = () => {
@@ -15,6 +15,7 @@ const AuctionDetail = () => {
   const auction = dbAuction ?? AUCTIONS.find((a) => a.id === id) ?? AUCTIONS[0];
   const { bids, refetch: refetchBids } = useMyBids(id);
   const { placeBid } = usePlaceBid();
+  const { entries: leaderboardEntries } = useAuctionLeaderboard(id);
 
   const isJackpot = auction.type === 'jackpot';
 
@@ -286,22 +287,42 @@ const AuctionDetail = () => {
               <div className="bg-card border border-border rounded-lg">
                 <div className="px-5 py-3 border-b border-border flex justify-between items-center">
                   <span className="font-display font-bold text-sm">Leaderboard</span>
-                  <span className="text-[10px] text-muted-foreground">Masked during active auction</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {leaderboardEntries.length > 0 ? `${leaderboardEntries.length} entries` : 'Masked during active auction'}
+                  </span>
                 </div>
                 <div className="divide-y divide-border/50">
-                  {[1, 2, 3, 4, 5].map((rank) => (
-                    <div key={rank} className="px-5 py-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className={`font-mono text-sm font-bold ${rank === 1 ? 'text-primary' : rank <= 3 ? 'text-ice' : 'text-muted-foreground'}`}>
-                          #{rank}
+                  {leaderboardEntries.length > 0 ? (
+                    leaderboardEntries.slice(0, 10).map((entry, i) => (
+                      <div key={i} className="px-5 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className={`font-mono text-sm font-bold ${entry.rank === 1 ? 'text-primary' : entry.rank <= 3 ? 'text-ice' : 'text-muted-foreground'}`}>
+                            #{entry.rank}
+                          </span>
+                          <span className="font-mono text-sm text-muted-foreground">
+                            {String(entry.bid_amount).padStart(5, '0')}
+                          </span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${entry.is_unique ? (entry.rank === 1 ? 'bg-gold-subtle text-primary' : 'bg-green-subtle text-pngwin-green') : 'bg-red-subtle text-pngwin-red'}`}>
+                          {entry.is_unique ? 'UNIQUE' : 'BURNED'}
                         </span>
-                        <span className="font-mono text-sm text-muted-foreground">##.##</span>
                       </div>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${rank === 1 ? 'bg-gold-subtle text-primary' : 'bg-green-subtle text-pngwin-green'}`}>
-                        UNIQUE
-                      </span>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    [1, 2, 3, 4, 5].map((rank) => (
+                      <div key={rank} className="px-5 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className={`font-mono text-sm font-bold ${rank === 1 ? 'text-primary' : rank <= 3 ? 'text-ice' : 'text-muted-foreground'}`}>
+                            #{rank}
+                          </span>
+                          <span className="font-mono text-sm text-muted-foreground">##.##</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${rank === 1 ? 'bg-gold-subtle text-primary' : 'bg-green-subtle text-pngwin-green'}`}>
+                          UNIQUE
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
