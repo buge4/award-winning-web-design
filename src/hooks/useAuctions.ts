@@ -79,7 +79,7 @@ export const useAuctionDetail = (instanceId?: string) => {
   const [auction, setAuction] = useState<Auction | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchAuction = useCallback(() => {
     if (!instanceId) { setLoading(false); return; }
 
     supabase
@@ -96,7 +96,11 @@ export const useAuctionDetail = (instanceId?: string) => {
       });
   }, [instanceId]);
 
-  return { auction, loading };
+  useEffect(() => {
+    fetchAuction();
+  }, [fetchAuction]);
+
+  return { auction, loading, refetch: fetchAuction };
 };
 
 /** Fetch resolved auctions for history */
