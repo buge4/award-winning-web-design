@@ -11,7 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 const AuctionDetail = () => {
   const { id } = useParams();
   const { user } = useAuth();
-  const { auction: dbAuction } = useAuctionDetail(id);
+  const { auction: dbAuction, refetch: refetchAuction } = useAuctionDetail(id);
   const auction = dbAuction ?? AUCTIONS.find((a) => a.id === id) ?? AUCTIONS[0];
   const { bids, refetch: refetchBids } = useMyBids(id);
   const { placeBid } = usePlaceBid();
@@ -31,6 +31,7 @@ const AuctionDetail = () => {
         toast(`✅ Bid ${value} placed!`);
       }
       refetchBids();
+      refetchAuction();
     } else {
       toast.error(message);
     }
