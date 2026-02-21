@@ -188,7 +188,7 @@ export const usePlaceBid = () => {
     const { data, error } = await supabase.rpc('place_auction_bid', {
       p_user_id: user.id,
       p_instance_id: instanceId,
-      p_bid_value: numericValue,
+      p_bid_amount: numericValue,
     });
 
     if (error) {
