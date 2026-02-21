@@ -1,7 +1,17 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import type { Auction } from '@/data/mockData';
+
+// Format seconds into mm:ss or hh:mm:ss
+const formatCountdown = (totalSeconds: number): string => {
+  if (totalSeconds <= 0) return '0:00';
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
 
 // Map a Supabase auction_instance row to our local Auction shape
 const mapRow = (row: Record<string, unknown>): Auction => {
@@ -46,7 +56,23 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     uniqueBids: Number(row.unique_bidders ?? 0),
     burnedBids: Number(row.burned_amount ?? 0),
     icon: type === 'jackpot' ? '🎰' : type === 'free' ? '🎁' : type === 'blind_count' || type === 'blind_timed' ? '🙈' : type === 'timed' ? '⏱️' : '🎯',
-    timeRemaining: row.time_remaining ? String(row.time_remaining) : undefined,
+    // Compute timeRemaining from DB timestamps
+    timeRemaining: (() => {
+      const now = Date.now();
+      // Hot mode countdown
+      if (String(row.status) === 'hot_mode' && row.hot_mode_ends_at) {
+        const endsAt = new Date(String(row.hot_mode_ends_at)).getTime();
+        const diff = Math.max(0, Math.floor((endsAt - now) / 1000));
+        return formatCountdown(diff);
+      }
+      // Timed auction countdown
+      if (row.scheduled_end) {
+        const endsAt = new Date(String(row.scheduled_end)).getTime();
+        const diff = Math.max(0, Math.floor((endsAt - now) / 1000));
+        return formatCountdown(diff);
+      }
+      return row.time_remaining ? String(row.time_remaining) : undefined;
+    })(),
     bidTarget: config.total_bids_to_hot ? Number(config.total_bids_to_hot) : undefined,
     rolloverWeek: row.rollover_week ? Number(row.rollover_week) : undefined,
     rolloverHistory: row.rollover_history ? (row.rollover_history as number[]) : undefined,
@@ -84,6 +110,7 @@ export const useAuctions = (activeOnly = false) => {
 export const useAuctionDetail = (instanceId?: string) => {
   const [auction, setAuction] = useState<Auction | null>(null);
   const [loading, setLoading] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchAuction = useCallback(() => {
     if (!instanceId) { setLoading(false); return; }
@@ -105,6 +132,27 @@ export const useAuctionDetail = (instanceId?: string) => {
   useEffect(() => {
     fetchAuction();
   }, [fetchAuction]);
+
+  // Poll every 2s during hot_mode or timed to keep countdown live
+  useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    const needsPolling = auction && (
+      auction.status === 'hot_mode' ||
+      (auction.status === 'accumulating' && auction.type === 'timed') ||
+      auction.status === 'grace_period'
+    );
+
+    if (needsPolling) {
+      intervalRef.current = setInterval(() => {
+        fetchAuction();
+      }, 2000);
+    }
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [auction?.status, auction?.type, fetchAuction]);
 
   return { auction, loading, refetch: fetchAuction };
 };
