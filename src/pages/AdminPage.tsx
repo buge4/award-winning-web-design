@@ -69,42 +69,95 @@ interface UserRow {
 
 // ── Admin Page ─────────────────────────────────────────
 const AdminPage = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
   const [activeTab, setActiveTab] = useState<'auctions' | 'create' | 'results' | 'users'>('auctions');
 
-  // Check admin role
+  // Login form state
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Check admin role once auth is ready
   useEffect(() => {
-    if (!user) { setChecking(false); return; }
+    if (authLoading) return;
+    if (!user) { setChecking(false); setIsAdmin(false); return; }
+    setChecking(true);
     supabase
       .from('users')
       .select('role')
       .eq('id', user.id)
       .single()
       .then(({ data }) => {
-        if (data && ['admin', 'super_admin'].includes(data.role)) {
-          setIsAdmin(true);
-        }
+        setIsAdmin(!!data && ['admin', 'super_admin'].includes(data.role));
         setChecking(false);
       });
-  }, [user]);
+  }, [user, authLoading]);
 
-  if (checking) {
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    setLoginLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
+    if (error) {
+      setLoginError(error.message);
+      setLoginLoading(false);
+    } else {
+      setLoginLoading(false);
+      // auth state change will trigger the useEffect above
+    }
+  };
+
+  if (authLoading || checking) {
     return (
       <div className="min-h-screen pt-16 pb-20 md:pb-0 flex items-center justify-center">
-        <div className="text-muted-foreground text-sm">Checking permissions...</div>
+        <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!user) {
+    return (
+      <div className="min-h-screen pt-16 pb-20 md:pb-0 flex items-center justify-center px-4">
+        <div className="w-full max-w-sm bg-card/80 backdrop-blur-xl border border-border-active rounded-2xl p-8">
+          <div className="text-center mb-6">
+            <div className="text-3xl mb-2">🛡️</div>
+            <div className="font-display font-bold text-xl">Admin Login</div>
+            <div className="text-xs text-muted-foreground mt-1">Sign in with an admin account</div>
+          </div>
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+              <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required
+                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
+                placeholder="admin@example.com" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Password</label>
+              <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required
+                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
+                placeholder="••••••••" />
+            </div>
+            {loginError && <div className="text-xs text-destructive">{loginError}</div>}
+            <button type="submit" disabled={loginLoading}
+              className="w-full py-3 gradient-gold text-primary-foreground font-display font-bold text-sm tracking-wider rounded-lg shadow-gold disabled:opacity-60">
+              {loginLoading ? 'Signing in...' : 'SIGN IN'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
     return (
       <div className="min-h-screen pt-16 pb-20 md:pb-0 flex items-center justify-center">
         <div className="text-center">
           <div className="text-4xl mb-4">🔒</div>
-          <div className="text-muted-foreground text-sm">Admin access required.</div>
+          <div className="text-muted-foreground text-sm">Access denied. You do not have admin privileges.</div>
           <button onClick={() => navigate('/')} className="mt-4 text-xs text-primary hover:underline">Go Home</button>
         </div>
       </div>
