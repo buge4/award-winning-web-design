@@ -61,6 +61,7 @@ const App = () => (
             <Route path="/signin" element={<AuthPage mode="signin" />} />
             <Route path="/signup" element={<AuthPage mode="signup" />} />
             <Route path="/how-it-works" element={<HowAuctionsWork />} />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
           <MobileNav />
