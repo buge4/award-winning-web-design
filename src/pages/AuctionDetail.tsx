@@ -524,12 +524,12 @@ const AuctionDetail = () => {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.03 }}
                           className={`px-5 py-3 flex items-center justify-between ${
-                            entry.rank === leaderboardEntries.length ? 'bg-gold-subtle' : ''
+                            entry.rank === 1 ? 'bg-gold-subtle' : ''
                           }`}
                         >
                           <div className="flex items-center gap-3">
                             <span className={`font-mono text-sm font-bold w-8 ${
-                              entry.rank === leaderboardEntries.length ? 'text-primary' : entry.rank >= leaderboardEntries.length - 2 ? 'text-ice' : 'text-muted-foreground'
+                              entry.rank === 1 ? 'text-primary' : entry.rank <= 3 ? 'text-ice' : 'text-muted-foreground'
                             }`}>
                               #{entry.rank}
                             </span>
@@ -542,9 +542,9 @@ const AuctionDetail = () => {
                               {showValue ? Number(entry.bid_amount).toFixed(2) : '##.##'}
                             </span>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                              entry.rank === leaderboardEntries.length ? 'bg-gold-subtle text-primary' : 'bg-pngwin-green/10 text-pngwin-green'
+                              entry.rank === 1 ? 'bg-gold-subtle text-primary' : 'bg-pngwin-green/10 text-pngwin-green'
                             }`}>
-                              {entry.rank === leaderboardEntries.length ? '👑 LEADER' : 'UNIQUE'}
+                              {entry.rank === 1 ? '👑 LEADER' : 'UNIQUE'}
                             </span>
                           </div>
                         </motion.div>
