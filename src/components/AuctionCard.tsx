@@ -134,6 +134,27 @@ const AuctionCard = ({ auction }: { auction: Auction }) => {
           </div>
         )}
 
+        {/* Airdrop badges */}
+        {(auction as any).airdropMode && (auction as any).airdropMode !== 'none' && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-primary/5 text-primary border border-primary/20">
+              🪂 Airdrop{(auction as any).tokenSymbol ? ` · ${(auction as any).tokenSymbol}` : ''}
+            </span>
+          </div>
+        )}
+        {(auction as any).feeMode === 'free' && (
+          <div className="mt-1">
+            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-pngwin-green/10 text-pngwin-green border border-pngwin-green/20">🎁 FREE</span>
+          </div>
+        )}
+        {(auction as any).feeMode === 'mixed' && (
+          <div className="mt-1">
+            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-pngwin-green/10 text-pngwin-green border border-pngwin-green/20">
+              🎁 {(auction as any).mixedFreeBids || 3} Free Bids
+            </span>
+          </div>
+        )}
+
         {/* Bid cost */}
         <div className="mt-3 pt-3 border-t border-border flex justify-between items-center text-xs">
           <span className="text-muted-foreground">Bid Cost</span>
