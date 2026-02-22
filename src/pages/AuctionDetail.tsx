@@ -44,7 +44,8 @@ const AuctionDetail = () => {
   const { placeBid } = usePlaceBid();
   // Only fetch leaderboard if visibility is 'open' OR auction is resolved
   const isBlindConfig = auction?.visibility === 'blind';
-  const shouldShowLeaderboard = !isBlindConfig || auction?.status === 'resolved';
+  const isResolved = auction?.status === 'resolved' || auction?.status === 'closed';
+  const shouldShowLeaderboard = !isBlindConfig || isResolved;
   const { entries: leaderboardEntries } = useAuctionLeaderboard(shouldShowLeaderboard ? id : undefined);
 
   const [countdown, setCountdown] = useState<string | null>(null);
@@ -422,7 +423,7 @@ const AuctionDetail = () => {
             <div className="grid grid-cols-3 gap-2">
               <KpiCard label="Total Bids" value={auction.bidCount} color="ice" />
               {/* Hide unique/burned counts for blind auctions that aren't resolved */}
-              {(!isBlind || auction.status === 'resolved') ? (
+              {(!isBlind || isResolved) ? (
                 <>
                   <KpiCard label="Unique" value={auction.uniqueBids} color="green" />
                   <KpiCard label="Burned" value={Number(auction.burnedBids.toFixed(0))} color="red" />
@@ -461,7 +462,7 @@ const AuctionDetail = () => {
                     >
                       <div className="flex items-center gap-3">
                         {/* Hide status indicator for blind auctions that aren't resolved */}
-                        {(isBlind && auction.status !== 'resolved') ? (
+                        {(isBlind && !isResolved) ? (
                           <span className="w-2 h-2 rounded-full bg-pngwin-purple/50" />
                         ) : (
                           <span className={`w-2 h-2 rounded-full ${
@@ -472,7 +473,7 @@ const AuctionDetail = () => {
                       </div>
                       <div className="flex items-center gap-4">
                         {/* Hide position and status for blind auctions */}
-                        {(isBlind && auction.status !== 'resolved') ? (
+                        {(isBlind && !isResolved) ? (
                           <>
                             <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase bg-pngwin-purple/10 text-pngwin-purple">
                               SEALED
