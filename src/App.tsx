@@ -17,7 +17,6 @@ import TournamentDetail from "./pages/TournamentDetail";
 import WalletPage from "./pages/WalletPage";
 import SocialCirclePage from "./pages/SocialCirclePage";
 import BadgesPage from "./pages/BadgesPage";
-import AdminPage from "./pages/AdminPage";
 import SettingsPage from "./pages/SettingsPage";
 import AuthPage from "./pages/AuthPage";
 import HowAuctionsWork from "./pages/HowAuctionsWork";
@@ -30,6 +29,16 @@ import ResultsPage from "./pages/ResultsPage";
 import ProfilePage from "./pages/ProfilePage";
 import JackpotPage from "./pages/JackpotPage";
 import NotFound from "./pages/NotFound";
+
+// Admin
+import AdminLayout from "./pages/admin/AdminLayout";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminAuctions from "./pages/admin/AdminAuctions";
+import AdminAuctionDetail from "./pages/admin/AdminAuctionDetail";
+import AdminCreateAuction from "./pages/admin/AdminCreateAuction";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminFinance from "./pages/admin/AdminFinance";
+import AdminSettings from "./pages/admin/AdminSettings";
 
 const queryClient = new QueryClient();
 
@@ -59,7 +68,6 @@ const App = () => (
             <Route path="/social" element={<SocialCirclePage />} />
             <Route path="/social/how-it-works" element={<HowSocialCircleWorks />} />
             <Route path="/badges" element={<BadgesPage />} />
-            <Route path="/admin" element={<AdminPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/signin" element={<AuthPage mode="signin" />} />
             <Route path="/signup" element={<AuthPage mode="signup" />} />
@@ -67,6 +75,17 @@ const App = () => (
             <Route path="/results" element={<ResultsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/jackpot" element={<JackpotPage />} />
+
+            {/* Admin routes */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="auctions" element={<AdminAuctions />} />
+              <Route path="auctions/create" element={<AdminCreateAuction />} />
+              <Route path="auctions/:id" element={<AdminAuctionDetail />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="finance" element={<AdminFinance />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
             
             <Route path="*" element={<NotFound />} />
           </Routes>
