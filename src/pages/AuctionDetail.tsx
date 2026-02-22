@@ -452,52 +452,25 @@ const AuctionDetail = () => {
                   {user ? 'No bids placed yet. Be the first!' : 'Sign in to place bids'}
                 </div>
               ) : (
-                <div className="divide-y divide-border/50">
-                  {bids.map((bid) => (
-                    <motion.div
-                      key={bid.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="px-5 py-3 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* Hide status indicator for blind auctions that aren't resolved */}
-                        {(isBlind && !isResolved) ? (
-                          <span className="w-2 h-2 rounded-full bg-pngwin-purple/50" />
-                        ) : (
-                          <span className={`w-2 h-2 rounded-full ${
-                            bid.status === 'unique' ? 'bg-pngwin-green' : 'bg-pngwin-red'
-                          }`} />
-                        )}
-                        <span className="font-mono text-lg font-bold">{bid.value}</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        {/* Hide position and status for blind auctions */}
-                        {(isBlind && !isResolved) ? (
-                          <>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase bg-pngwin-purple/10 text-pngwin-purple">
-                              SEALED
-                            </span>
-                            <span className="text-xs text-muted-foreground">{bid.timestamp}</span>
-                          </>
-                        ) : (
-                          <>
-                            {bid.status === 'unique' && bid.position && !isJackpot && (
-                              <span className="text-xs text-pngwin-green font-semibold">#{bid.position}</span>
-                            )}
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                              bid.status === 'unique'
-                                ? 'bg-pngwin-green/10 text-pngwin-green'
-                                : 'bg-pngwin-red/10 text-pngwin-red'
-                            }`}>
-                              {bid.status}
-                            </span>
-                            <span className="text-xs text-muted-foreground">{bid.timestamp}</span>
-                          </>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
+                <div className="flex flex-wrap gap-2 px-5 py-4">
+                  {bids.slice(0, 10).map((bid) => {
+                    const sealed = isBlind && !isResolved;
+                    const isGood = sealed ? undefined : bid.status === 'unique';
+                    return (
+                      <motion.span
+                        key={bid.id}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className={`font-mono text-sm font-bold px-3 py-1.5 rounded-lg border ${
+                          sealed ? 'text-pngwin-purple border-pngwin-purple/20 bg-pngwin-purple/5' :
+                          isGood ? 'text-pngwin-green border-pngwin-green/20 bg-pngwin-green/5' :
+                          'text-pngwin-red border-pngwin-red/20 bg-pngwin-red/5 line-through opacity-60'
+                        }`}
+                      >
+                        {bid.value}
+                      </motion.span>
+                    );
+                  })}
                 </div>
               )}
             </div>
