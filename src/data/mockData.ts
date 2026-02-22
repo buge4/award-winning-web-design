@@ -20,6 +20,8 @@ export interface Auction {
   maxBidValue?: number;
   hotModeEndsAt?: string;
   totalBidFees?: number;
+  visibility?: 'open' | 'blind';
+  resolutionMethod?: 'highest_unique_bid' | 'rng_exact' | 'rng_closest';
 }
 
 export interface Bid {

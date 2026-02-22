@@ -312,6 +312,8 @@ const ManageAuctions = () => {
 const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
   const [name, setName] = useState('');
   const [auctionType, setAuctionType] = useState<string>('live_before_hot');
+  const [resolutionMethod, setResolutionMethod] = useState<'highest_unique_bid' | 'rng_exact' | 'rng_closest'>('highest_unique_bid');
+  const [visibility, setVisibility] = useState<'open' | 'blind'>('open');
   const [currency, setCurrency] = useState<string>('PNGWIN');
   const [bidFee, setBidFee] = useState('10');
   const [minBidValue, setMinBidValue] = useState('0.01');
@@ -374,6 +376,8 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
         p_split_house_pct: split.platform,
         p_split_social_pct: split.social,
         p_split_jackpot_pct: split.rollover,
+        p_resolution_method: resolutionMethod,
+        p_visibility: visibility,
       });
 
       if (error) throw error;
@@ -413,6 +417,32 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Resolution & Visibility */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Resolution Method</label>
+              <select value={resolutionMethod} onChange={e => setResolutionMethod(e.target.value as any)}
+                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+                <option value="highest_unique_bid">🏆 Highest Unique Bid</option>
+                <option value="rng_exact">🎲 RNG Exact Match</option>
+                <option value="rng_closest">🎯 RNG Closest Match</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Visibility</label>
+              <div className="flex gap-2 mt-0.5">
+                {(['open', 'blind'] as const).map(v => (
+                  <button key={v} onClick={() => setVisibility(v)}
+                    className={`flex-1 py-2.5 rounded-lg text-xs font-semibold border transition-all ${
+                      visibility === v ? 'border-primary bg-gold-subtle text-primary' : 'border-border text-muted-foreground hover:border-border-active'
+                    }`}>
+                    {v === 'open' ? '👁️ Open' : '🙈 Blind'}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
