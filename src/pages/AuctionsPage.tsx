@@ -199,19 +199,25 @@ const AuctionsPage = () => {
   // Find jackpot auction for featured card
   const jackpotAuction = allAuctions.find(a => a.type === 'jackpot');
 
+  // Filter out auctions whose timer has expired (0:00) — they're effectively ended
+  const isStillActive = (a: Auction) => {
+    if ((a.status === 'hot_mode' || a.status === 'grace_period') && a.timeRemaining === '0:00') return false;
+    return true;
+  };
+
   const filtered = (() => {
     const activeStatuses = ['accumulating', 'hot_mode', 'grace_period'];
     switch (activeTab) {
       case 'active':
-        return allAuctions.filter(a => activeStatuses.includes(a.status));
+        return allAuctions.filter(a => activeStatuses.includes(a.status) && isStillActive(a));
       case 'hot_mode':
-        return allAuctions.filter(a => a.status === 'hot_mode' || a.status === 'grace_period');
+        return allAuctions.filter(a => (a.status === 'hot_mode' || a.status === 'grace_period') && isStillActive(a));
       case 'blind':
-        return allAuctions.filter(a => (a.type === 'blind_count' || a.type === 'blind_timed') && activeStatuses.includes(a.status));
+        return allAuctions.filter(a => (a.type === 'blind_count' || a.type === 'blind_timed') && activeStatuses.includes(a.status) && isStillActive(a));
       case 'ending':
-        return allAuctions.filter(a => a.status === 'grace_period' || (a.type === 'timed' && a.status === 'accumulating'));
+        return allAuctions.filter(a => (a.status === 'grace_period' || (a.type === 'timed' && a.status === 'accumulating')) && isStillActive(a));
       default:
-        return allAuctions.filter(a => a.status === activeTab && activeStatuses.includes(a.status));
+        return allAuctions.filter(a => a.status === activeTab && activeStatuses.includes(a.status) && isStillActive(a));
     }
   })();
 
