@@ -513,36 +513,43 @@ const AuctionDetail = () => {
                 </div>
                 <div className="divide-y divide-border/50">
                   {leaderboardEntries.length > 0 ? (
-                    leaderboardEntries.slice(0, 20).map((entry, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.03 }}
-                        className={`px-5 py-3 flex items-center justify-between ${
-                          entry.rank === leaderboardEntries.length ? 'bg-gold-subtle' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className={`font-mono text-sm font-bold w-8 ${
-                            entry.rank === leaderboardEntries.length ? 'text-primary' : entry.rank >= leaderboardEntries.length - 2 ? 'text-ice' : 'text-muted-foreground'
-                          }`}>
-                            #{entry.rank}
-                          </span>
-                          <span className="text-sm text-muted-foreground">{entry.username}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-sm font-bold">
-                            {Number(entry.bid_amount).toFixed(2)}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                            entry.rank === leaderboardEntries.length ? 'bg-gold-subtle text-primary' : 'bg-pngwin-green/10 text-pngwin-green'
-                          }`}>
-                            {entry.rank === leaderboardEntries.length ? '👑 LEADER' : 'UNIQUE'}
-                          </span>
-                        </div>
-                      </motion.div>
-                    ))
+                    leaderboardEntries.slice(0, 20).map((entry, i) => {
+                      const isOwnBid = user && entry.user_id === user.id;
+                      const auctionEnded = ['closed', 'resolved', 'cancelled'].includes(auction.status);
+                      const showValue = isOwnBid || auctionEnded;
+                      return (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.03 }}
+                          className={`px-5 py-3 flex items-center justify-between ${
+                            entry.rank === leaderboardEntries.length ? 'bg-gold-subtle' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`font-mono text-sm font-bold w-8 ${
+                              entry.rank === leaderboardEntries.length ? 'text-primary' : entry.rank >= leaderboardEntries.length - 2 ? 'text-ice' : 'text-muted-foreground'
+                            }`}>
+                              #{entry.rank}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {isOwnBid ? <b className="text-foreground">{entry.username} (you)</b> : entry.username}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className={`font-mono text-sm font-bold ${!showValue ? 'text-muted-foreground' : ''}`}>
+                              {showValue ? Number(entry.bid_amount).toFixed(2) : '##.##'}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              entry.rank === leaderboardEntries.length ? 'bg-gold-subtle text-primary' : 'bg-pngwin-green/10 text-pngwin-green'
+                            }`}>
+                              {entry.rank === leaderboardEntries.length ? '👑 LEADER' : 'UNIQUE'}
+                            </span>
+                          </div>
+                        </motion.div>
+                      );
+                    })
                   ) : (
                     <div className="px-5 py-8 text-center text-muted-foreground text-sm">
                       Leaderboard updates after bids are placed

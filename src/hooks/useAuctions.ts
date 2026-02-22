@@ -283,7 +283,7 @@ export const usePlaceBid = () => {
 /** Fetch leaderboard for a specific auction (direct query, no RPC needed) */
 export const useAuctionLeaderboard = (instanceId?: string) => {
   const [entries, setEntries] = useState<Array<{
-    rank: number; username: string; bid_amount: number; is_unique: boolean;
+    rank: number; username: string; bid_amount: number; is_unique: boolean; user_id: string;
   }>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -302,6 +302,7 @@ export const useAuctionLeaderboard = (instanceId?: string) => {
             username: row.users?.username ?? `user_${String(row.user_id).slice(0, 6)}`,
             bid_amount: Number(row.bid_amount),
             is_unique: !row.is_burned,
+            user_id: String(row.user_id),
           })));
         }
         setLoading(false);
