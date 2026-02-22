@@ -25,6 +25,8 @@ export interface Auction {
   rngPickCount?: number;
   drawnNumbers?: number[];
   winningDistance?: number;
+  totalBidsToClose?: number;
+  scheduledEnd?: string;
 }
 
 export interface Bid {
