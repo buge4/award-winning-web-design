@@ -442,6 +442,27 @@ const AuctionDetail = () => {
 
           {/* Right column */}
           <div className="lg:col-span-2 space-y-5">
+            {/* Revenue Split — compact bar */}
+            <div className="bg-card border border-border rounded-lg px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold shrink-0">Split</span>
+                <div className="flex gap-0.5 h-2 rounded-full overflow-hidden flex-1">
+                  <div className="bg-pngwin-green" style={{ width: '55%' }} />
+                  <div className="bg-pngwin-red" style={{ width: '15%' }} />
+                  <div className="bg-muted-foreground" style={{ width: '15%' }} />
+                  <div className="bg-ice" style={{ width: '5%' }} />
+                  <div className="bg-primary" style={{ width: '10%' }} />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-1.5 text-[9px]">
+                <span className="text-pngwin-green">Prize 55%</span>
+                <span className="text-pngwin-red">Burn 15%</span>
+                <span className="text-muted-foreground">Platform 15%</span>
+                <span className="text-ice">Social 5%</span>
+                <span className="text-primary">Jackpot 10%</span>
+              </div>
+            </div>
+
             {/* My Bids */}
             <div className="bg-card border border-border rounded-lg">
               <div className="px-5 py-3 border-b border-border font-display font-bold text-sm">
@@ -554,25 +575,6 @@ const AuctionDetail = () => {
                 </div>
               </div>
             )}
-
-            {/* Revenue Split */}
-            <div className="bg-card border border-border rounded-lg p-5">
-              <div className="font-display font-bold text-sm mb-3">Revenue Split</div>
-              <div className="flex gap-2 flex-wrap">
-                {[
-                  { pct: '55%', label: 'Prize Pool', color: 'text-pngwin-green' },
-                  { pct: '15%', label: 'Burn', color: 'text-pngwin-red' },
-                  { pct: '15%', label: 'Platform', color: 'text-muted-foreground' },
-                  { pct: '5%', label: 'Social', color: 'text-ice' },
-                  { pct: '10%', label: 'Jackpot', color: 'text-primary' },
-                ].map((item, i) => (
-                  <div key={i} className="flex-1 min-w-[70px] text-center p-2.5 bg-background rounded-md">
-                    <div className={`font-mono text-sm font-bold ${item.color}`}>{item.pct}</div>
-                    <div className="text-[9px] text-muted-foreground">{item.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </div>
