@@ -338,6 +338,7 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
   const [earlyBirdReward, setEarlyBirdReward] = useState('5');
   const [airdropEnabled, setAirdropEnabled] = useState(false);
   const [airdropAmount, setAirdropAmount] = useState('');
+  const [rngPickCount, setRngPickCount] = useState('5');
 
   const showLiveFields = auctionType === 'live_before_hot';
   const showTimedFields = ['timed', 'blind_timed'].includes(auctionType);
@@ -378,6 +379,7 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
         p_split_jackpot_pct: split.rollover,
         p_resolution_method: resolutionMethod,
         p_visibility: visibility,
+        p_rng_pick_count: (resolutionMethod === 'rng_exact' || resolutionMethod === 'rng_closest') ? parseInt(rngPickCount) : null,
       });
 
       if (error) throw error;
@@ -545,6 +547,20 @@ const CreateAuction = ({ onCreated }: { onCreated: () => void }) => {
                 <label className="text-xs text-muted-foreground mb-1 block">Prize Description</label>
                 <input value={prizeDescription} onChange={e => setPrizeDescription(e.target.value)}
                   className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary" />
+              </div>
+            </div>
+          )}
+
+          {/* RNG Pick Count — show for rng_exact and rng_closest */}
+          {(resolutionMethod === 'rng_exact' || resolutionMethod === 'rng_closest') && (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                {resolutionMethod === 'rng_exact' ? '🎲 Numbers to Draw' : '🎯 Numbers to Draw'}
+              </label>
+              <input value={rngPickCount} onChange={e => setRngPickCount(e.target.value)} type="number" min="1" max="10"
+                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:border-primary" />
+              <div className="text-[9px] text-muted-foreground mt-1">
+                {resolutionMethod === 'rng_exact' ? 'How many random numbers drawn for exact match' : 'How many random numbers drawn (closest bid wins)'}
               </div>
             </div>
           )}

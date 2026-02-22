@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AUCTIONS as MOCK_AUCTIONS } from '@/data/mockData';
@@ -6,6 +6,68 @@ import { COMPLETED_AUCTIONS } from '@/data/drawHistory';
 import type { Auction } from '@/data/mockData';
 import { useAuctions, useAuctionHistory } from '@/hooks/useAuctions';
 import JackpotCounter from '@/components/JackpotCounter';
+
+// Jackpot Featured Card with countdown to Friday 20:00 UTC
+const JackpotFeaturedCard = ({ auction }: { auction: Auction }) => {
+  const [countdown, setCountdown] = useState('');
+
+  useEffect(() => {
+    const getNextFriday = () => {
+      const now = new Date();
+      const utcDay = now.getUTCDay();
+      const daysUntilFriday = (5 - utcDay + 7) % 7 || 7;
+      const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysUntilFriday, 20, 0, 0));
+      if (utcDay === 5 && now.getUTCHours() < 20) {
+        next.setUTCDate(now.getUTCDate());
+      }
+      return next;
+    };
+
+    const tick = () => {
+      const diff = Math.max(0, Math.floor((getNextFriday().getTime() - Date.now()) / 1000));
+      const d = Math.floor(diff / 86400);
+      const h = Math.floor((diff % 86400) / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
+      setCountdown(`${d}d ${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <Link to={`/auction/${auction.id}`}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-card border border-gold/30 rounded-xl p-6 mb-8 glow-gold cursor-pointer hover:border-gold/50 transition-colors"
+      >
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="text-center md:text-left">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-[3px] mb-1">Weekly Jackpot</div>
+            <JackpotCounter amount={auction.prizePool} />
+          </div>
+          <div className="text-center md:text-right space-y-2">
+            <div className="text-xs text-muted-foreground">
+              {auction.bidCount} bids • {auction.uniqueBids} unique
+            </div>
+            {auction.rngPickCount && (
+              <div className="px-3 py-1 rounded-full text-[10px] font-semibold bg-pngwin-red/10 text-pngwin-red border border-pngwin-red/20 inline-block">
+                🎲 {auction.rngPickCount} numbers will be drawn
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground font-mono">{countdown}</div>
+            <div className="text-[10px] text-muted-foreground">until Friday 20:00 UTC draw</div>
+            <div className="px-6 py-2.5 gradient-gold text-primary-foreground font-display font-bold text-sm tracking-wider rounded-lg shadow-gold inline-block">
+              Enter Jackpot →
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </Link>
+  );
+};
 
 const statusTabs = [
   { label: 'All Active', value: 'active' },
@@ -19,6 +81,12 @@ const statusTabs = [
 
 const TYPE_ICONS: Record<string, string> = {
   live_before_hot: '🎯', timed: '⏱️', blind_count: '🙈', blind_timed: '🙈', free: '🎁', jackpot: '🎰',
+};
+
+const RESOLUTION_BADGE: Record<string, { label: string; bg: string; text: string; border: string }> = {
+  highest_unique_bid: { label: '🏆 Unique Bid', bg: 'bg-gold-subtle', text: 'text-primary', border: 'border-gold' },
+  rng_closest: { label: '🎯 RNG Closest', bg: 'bg-purple-subtle', text: 'text-pngwin-purple', border: 'border-border-active' },
+  rng_exact: { label: '🎰 Jackpot Draw', bg: 'bg-pngwin-red/10', text: 'text-pngwin-red', border: 'border-pngwin-red/30' },
 };
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
@@ -53,6 +121,18 @@ const AuctionLobbyCard = ({ auction }: { auction: Auction }) => {
             {isHot ? '🔥 HOT' : isGrace ? '⏳ GRACE' : auction.status === 'resolved' ? '✅ DONE' : auction.status.replace(/_/g, ' ')}
           </span>
         </div>
+
+        {/* Resolution method badge */}
+        {auction.resolutionMethod && (
+          <div className="mb-3 relative z-10">
+            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${RESOLUTION_BADGE[auction.resolutionMethod]?.bg ?? ''} ${RESOLUTION_BADGE[auction.resolutionMethod]?.text ?? ''} border ${RESOLUTION_BADGE[auction.resolutionMethod]?.border ?? ''}`}>
+              {RESOLUTION_BADGE[auction.resolutionMethod]?.label ?? auction.resolutionMethod}
+            </span>
+            {auction.resolutionMethod === 'rng_exact' && auction.rngPickCount && (
+              <span className="ml-2 text-[10px] text-muted-foreground">{auction.rngPickCount} numbers drawn</span>
+            )}
+          </div>
+        )}
 
         <div className="mb-3 relative z-10">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prize Pool</div>
@@ -154,28 +234,7 @@ const AuctionsPage = () => {
 
         {/* Jackpot Featured Card */}
         {jackpotAuction && activeTab !== 'history' && (
-          <Link to={`/auction/${jackpotAuction.id}`}>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-card border border-gold/30 rounded-xl p-6 mb-8 glow-gold cursor-pointer hover:border-gold/50 transition-colors"
-            >
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="text-center md:text-left">
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-[3px] mb-1">Weekly Jackpot</div>
-                  <JackpotCounter amount={jackpotAuction.prizePool} />
-                </div>
-                <div className="text-center md:text-right">
-                  <div className="text-xs text-muted-foreground mb-2">
-                    {jackpotAuction.bidCount} bids • {jackpotAuction.uniqueBids} unique
-                  </div>
-                  <div className="px-6 py-2.5 gradient-gold text-primary-foreground font-display font-bold text-sm tracking-wider rounded-lg shadow-gold inline-block">
-                    Enter Jackpot →
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </Link>
+          <JackpotFeaturedCard auction={jackpotAuction} />
         )}
 
         {/* Filter Tabs */}

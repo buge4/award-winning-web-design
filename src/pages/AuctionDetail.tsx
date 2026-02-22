@@ -90,7 +90,7 @@ const AuctionDetail = () => {
     <div className="min-h-screen pt-16 pb-20 md:pb-0">
       {/* Winner Reveal Overlay */}
       <AnimatePresence>
-        {showWinnerReveal && auction.status === 'resolved' && winnerEntry && (
+        {showWinnerReveal && auction.status === 'resolved' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -103,47 +103,78 @@ const AuctionDetail = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ type: 'spring', damping: 15 }}
-              className="text-center p-10"
+              className="text-center p-10 max-w-lg w-full"
             >
-              <motion.div
-                animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                className="text-7xl mb-4"
-              >
-                🏆
-              </motion.div>
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                className="font-display text-4xl font-bold text-primary mb-2"
-              >
-                Winner!
-              </motion.div>
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.7 }}
-                className="font-display text-2xl text-foreground mb-1"
-              >
-                {winnerEntry.username}
-              </motion.div>
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.9 }}
-                className="font-mono text-lg text-muted-foreground"
-              >
-                Winning bid: {Number(winnerEntry.bid_amount).toFixed(2)}
-              </motion.div>
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 1.1 }}
-                className="font-mono text-3xl font-bold text-primary mt-4"
-              >
-                {auction.prizePool.toLocaleString()} PNGWIN
-              </motion.div>
+              {/* RNG Exact / Jackpot Draw — lottery style number reveal */}
+              {auction.resolutionMethod === 'rng_exact' && auction.drawnNumbers && auction.drawnNumbers.length > 0 ? (
+                <>
+                  <div className="text-xs text-muted-foreground uppercase tracking-[4px] mb-4">🎰 Jackpot Draw</div>
+                  <div className="flex justify-center gap-3 mb-6">
+                    {auction.drawnNumbers.map((num, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ rotateX: 90, opacity: 0 }}
+                        animate={{ rotateX: 0, opacity: 1 }}
+                        transition={{ delay: i * 0.6, duration: 0.5, type: 'spring' }}
+                        className="w-16 h-20 bg-card border-2 border-gold rounded-xl flex items-center justify-center shadow-gold"
+                      >
+                        <span className="font-mono text-3xl font-bold text-primary">{num.toFixed(2)}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                  {winnerEntry ? (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: auction.drawnNumbers.length * 0.6 + 0.5 }}>
+                      <div className="text-2xl mb-2">🏆</div>
+                      <div className="font-display text-2xl font-bold text-primary">{winnerEntry.username}</div>
+                      <div className="font-mono text-sm text-muted-foreground mt-1">Matched: {Number(winnerEntry.bid_amount).toFixed(2)}</div>
+                      <div className="font-mono text-3xl font-bold text-primary mt-3">{auction.prizePool.toLocaleString()} PNGWIN</div>
+                    </motion.div>
+                  ) : (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: auction.drawnNumbers.length * 0.6 + 0.5 }}>
+                      <div className="text-2xl mb-2">🔄</div>
+                      <div className="font-display text-xl font-bold text-pngwin-orange">No exact match — Rollover!</div>
+                      <div className="text-xs text-muted-foreground mt-2">Prize pool carries to next week</div>
+                    </motion.div>
+                  )}
+                </>
+              ) : auction.resolutionMethod === 'rng_closest' && auction.drawnNumbers && auction.drawnNumbers.length > 0 ? (
+                /* RNG Closest — show drawn number + distance */
+                <>
+                  <div className="text-xs text-muted-foreground uppercase tracking-[4px] mb-4">🎯 RNG Draw</div>
+                  <motion.div
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.3, type: 'spring' }}
+                    className="w-24 h-28 mx-auto bg-card border-2 border-pngwin-purple rounded-xl flex flex-col items-center justify-center mb-6"
+                  >
+                    <div className="text-[9px] text-muted-foreground mb-1">DRAWN</div>
+                    <span className="font-mono text-4xl font-bold text-pngwin-purple">{auction.drawnNumbers[0].toFixed(2)}</span>
+                  </motion.div>
+                  {winnerEntry && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}>
+                      <div className="text-2xl mb-2">🏆</div>
+                      <div className="font-display text-2xl font-bold text-primary">{winnerEntry.username}</div>
+                      <div className="font-mono text-sm text-muted-foreground mt-1">
+                        Bid: {Number(winnerEntry.bid_amount).toFixed(2)} — Distance: {auction.winningDistance?.toFixed(2) ?? '0.00'}
+                      </div>
+                      <div className="font-mono text-3xl font-bold text-primary mt-3">{auction.prizePool.toLocaleString()} PNGWIN</div>
+                    </motion.div>
+                  )}
+                </>
+              ) : (
+                /* Default: Highest Unique Bid reveal */
+                <>
+                  <motion.div animate={{ rotate: [0, -10, 10, -10, 10, 0] }} transition={{ duration: 0.6, delay: 0.3 }} className="text-7xl mb-4">🏆</motion.div>
+                  {winnerEntry && (
+                    <>
+                      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }} className="font-display text-4xl font-bold text-primary mb-2">Winner!</motion.div>
+                      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.7 }} className="font-display text-2xl text-foreground mb-1">{winnerEntry.username}</motion.div>
+                      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.9 }} className="font-mono text-lg text-muted-foreground">Winning bid: {Number(winnerEntry.bid_amount).toFixed(2)}</motion.div>
+                      <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 1.1 }} className="font-mono text-3xl font-bold text-primary mt-4">{auction.prizePool.toLocaleString()} PNGWIN</motion.div>
+                    </>
+                  )}
+                </>
+              )}
               <div className="text-xs text-muted-foreground mt-4">Click to dismiss</div>
             </motion.div>
           </motion.div>
@@ -169,6 +200,22 @@ const AuctionDetail = () => {
               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${sc.class}`}>
                 {sc.label}
               </span>
+              {/* Resolution method badge */}
+              {auction.resolutionMethod && (
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                  auction.resolutionMethod === 'highest_unique_bid' ? 'bg-gold-subtle text-primary border border-gold' :
+                  auction.resolutionMethod === 'rng_closest' ? 'bg-purple-subtle text-pngwin-purple border border-border-active' :
+                  'bg-pngwin-red/10 text-pngwin-red border border-pngwin-red/30'
+                }`}>
+                  {auction.resolutionMethod === 'highest_unique_bid' ? '🏆 Unique Bid' :
+                   auction.resolutionMethod === 'rng_closest' ? '🎯 RNG Closest' : '🎰 Jackpot Draw'}
+                </span>
+              )}
+              {auction.resolutionMethod === 'rng_exact' && auction.rngPickCount && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-pngwin-red/10 text-pngwin-red border border-pngwin-red/20">
+                  🎲 {auction.rngPickCount} numbers drawn
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -269,7 +316,9 @@ const AuctionDetail = () => {
                 </div>
               </div>
               <div className="text-[10px] text-muted-foreground text-center mt-2">
-                Highest unique bid wins 🏆
+                {auction.resolutionMethod === 'rng_closest' ? '🎯 Closest to drawn number wins' :
+                 auction.resolutionMethod === 'rng_exact' ? '🎰 Exact match wins or rolls over' :
+                 'Highest unique bid wins 🏆'}
               </div>
             </div>
 
@@ -290,11 +339,24 @@ const AuctionDetail = () => {
               >
                 <div className="text-2xl mb-2">🏆</div>
                 <div className="font-display font-bold text-primary">Auction Resolved</div>
-                {winnerEntry && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Winner: <span className="text-foreground font-semibold">{winnerEntry.username}</span> — bid {Number(winnerEntry.bid_amount).toFixed(2)}
+                {/* Show drawn numbers for RNG auctions */}
+                {auction.drawnNumbers && auction.drawnNumbers.length > 0 && (
+                  <div className="flex justify-center gap-2 mt-3 mb-2">
+                    {auction.drawnNumbers.map((n, i) => (
+                      <div key={i} className="w-12 h-14 bg-card border border-gold rounded-lg flex items-center justify-center">
+                        <span className="font-mono text-sm font-bold text-primary">{n.toFixed(2)}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
+                {winnerEntry ? (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Winner: <span className="text-foreground font-semibold">{winnerEntry.username}</span> — bid {Number(winnerEntry.bid_amount).toFixed(2)}
+                    {auction.winningDistance != null && <span className="ml-1">(distance: {auction.winningDistance.toFixed(2)})</span>}
+                  </div>
+                ) : auction.resolutionMethod === 'rng_exact' ? (
+                  <div className="text-xs text-pngwin-orange mt-1 font-semibold">🔄 No exact match — Rolled over</div>
+                ) : null}
                 <div className="text-[10px] text-ice mt-2">Click to replay reveal ✨</div>
               </motion.div>
             )}

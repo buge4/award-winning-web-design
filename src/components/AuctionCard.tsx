@@ -45,6 +45,18 @@ const AuctionCard = ({ auction }: { auction: Auction }) => {
           </span>
         </div>
 
+        {/* Resolution method badge */}
+        {auction.resolutionMethod && auction.resolutionMethod !== 'highest_unique_bid' && (
+          <div className="mb-3">
+            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+              auction.resolutionMethod === 'rng_closest' ? 'bg-purple-subtle text-pngwin-purple border border-border-active' :
+              'bg-pngwin-red/10 text-pngwin-red border border-pngwin-red/30'
+            }`}>
+              {auction.resolutionMethod === 'rng_closest' ? '🎯 RNG Closest' : '🎰 Jackpot Draw'}
+            </span>
+          </div>
+        )}
+
         {/* Prize pool */}
         <div className="mb-3">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prize Pool</div>
