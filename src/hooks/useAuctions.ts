@@ -280,27 +280,40 @@ export const usePlaceBid = () => {
   return { placeBid };
 };
 
-/** Fetch leaderboard for a specific auction */
+/** Fetch leaderboard for a specific auction (direct query, no RPC needed) */
 export const useAuctionLeaderboard = (instanceId?: string) => {
-  const { user } = useAuth();
   const [entries, setEntries] = useState<Array<{
     rank: number; username: string; bid_amount: number; is_unique: boolean;
   }>>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!instanceId || !user) { setLoading(false); return; }
-    supabase.rpc('get_auction_leaderboard', {
-      p_instance_id: instanceId,
-      p_user_id: user.id,
-    }).then(({ data, error }) => {
-      if (data) setEntries(data);
-      setLoading(false);
-      if (error) console.error('useAuctionLeaderboard error:', error.message);
-    });
-  }, [instanceId, user]);
+  const fetchLeaderboard = useCallback(() => {
+    if (!instanceId) { setLoading(false); return; }
+    supabase
+      .from('auction_bids')
+      .select('bid_amount, is_burned, user_id, users(username)')
+      .eq('instance_id', instanceId)
+      .eq('is_burned', false)
+      .order('bid_amount', { ascending: false })
+      .then(({ data, error }) => {
+        if (data) {
+          setEntries(data.map((row: any, i: number) => ({
+            rank: i + 1,
+            username: row.users?.username ?? `user_${String(row.user_id).slice(0, 6)}`,
+            bid_amount: Number(row.bid_amount),
+            is_unique: !row.is_burned,
+          })));
+        }
+        setLoading(false);
+        if (error) console.error('useAuctionLeaderboard error:', error.message);
+      });
+  }, [instanceId]);
 
-  return { entries, loading };
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
+
+  return { entries, loading, refetch: fetchLeaderboard };
 };
 
 /** Fetch burned values count for an auction */
