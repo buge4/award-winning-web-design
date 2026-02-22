@@ -3,32 +3,30 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AUCTIONS as MOCK_AUCTIONS } from '@/data/mockData';
 import { COMPLETED_AUCTIONS } from '@/data/drawHistory';
-import type { Auction, AuctionType, AuctionStatus } from '@/data/mockData';
+import type { Auction } from '@/data/mockData';
 import { useAuctions, useAuctionHistory } from '@/hooks/useAuctions';
+import JackpotCounter from '@/components/JackpotCounter';
 
-const statusTabs: { label: string; value: string }[] = [
+const statusTabs = [
   { label: 'All Active', value: 'active' },
-  { label: '🔥 Hot Mode', value: 'hot_mode' },
-  { label: '📈 Accumulating', value: 'accumulating' },
-  { label: '⏳ Grace Period', value: 'grace_period' },
+  { label: '🔥 Hot', value: 'hot_mode' },
+  { label: '📈 Live', value: 'accumulating' },
+  { label: '🙈 Blind', value: 'blind' },
+  { label: '⏳ Ending Soon', value: 'ending' },
+  { label: '✅ Resolved', value: 'resolved' },
   { label: '📜 History', value: 'history' },
 ];
 
 const TYPE_ICONS: Record<string, string> = {
-  live_before_hot: '🎯',
-  timed: '⏱️',
-  blind_count: '🙈',
-  blind_timed: '🙈',
-  free: '🎁',
-  jackpot: '🎰',
+  live_before_hot: '🎯', timed: '⏱️', blind_count: '🙈', blind_timed: '🙈', free: '🎁', jackpot: '🎰',
 };
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-  accumulating: { bg: 'bg-pngwin-orange/10', text: 'text-pngwin-orange', border: 'border-pngwin-orange/20' },
+  accumulating: { bg: 'bg-gold-subtle', text: 'text-primary', border: 'border-gold' },
   hot_mode: { bg: 'bg-pngwin-red/10', text: 'text-pngwin-red', border: 'border-pngwin-red/30' },
-  grace_period: { bg: 'bg-pngwin-green/10', text: 'text-pngwin-green', border: 'border-pngwin-green/20' },
+  grace_period: { bg: 'bg-pngwin-orange/10', text: 'text-pngwin-orange', border: 'border-pngwin-orange/20' },
   closed: { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' },
-  resolved: { bg: 'bg-ice/10', text: 'text-ice', border: 'border-ice/20' },
+  resolved: { bg: 'bg-pngwin-green/10', text: 'text-pngwin-green', border: 'border-pngwin-green/20' },
 };
 
 const AuctionLobbyCard = ({ auction }: { auction: Auction }) => {
@@ -41,24 +39,21 @@ const AuctionLobbyCard = ({ auction }: { auction: Auction }) => {
       <motion.div
         whileHover={{ y: -4, transition: { duration: 0.2 } }}
         className={`bg-card border rounded-lg p-5 cursor-pointer transition-colors hover:bg-card-hover relative overflow-hidden ${
-          isHot ? 'border-pngwin-red/40' : isGrace ? 'border-pngwin-green/40' : 'border-border'
+          isHot ? 'border-pngwin-red/40' : isGrace ? 'border-pngwin-orange/40' : 'border-border'
         }`}
       >
-        {/* Hot mode glow */}
         {isHot && <div className="absolute inset-0 animate-hot rounded-lg pointer-events-none" />}
 
-        {/* Header */}
         <div className="flex items-center justify-between mb-3 relative z-10">
           <div className="flex items-center gap-2">
             <span className="text-xl">{TYPE_ICONS[auction.type] || '🎯'}</span>
             <h3 className="font-display font-bold text-sm">{auction.title}</h3>
           </div>
           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase ${style.bg} ${style.text} border ${style.border}`}>
-            {isHot ? '🔥 HOT MODE' : isGrace ? '⏳ GRACE' : auction.status.replace(/_/g, ' ')}
+            {isHot ? '🔥 HOT' : isGrace ? '⏳ GRACE' : auction.status === 'resolved' ? '✅ DONE' : auction.status.replace(/_/g, ' ')}
           </span>
         </div>
 
-        {/* Prize pool */}
         <div className="mb-3 relative z-10">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prize Pool</div>
           <div className="font-mono text-2xl font-bold text-primary">
@@ -67,14 +62,12 @@ const AuctionLobbyCard = ({ auction }: { auction: Auction }) => {
           </div>
         </div>
 
-        {/* Stats row */}
         <div className="flex justify-between text-xs text-muted-foreground mb-3 relative z-10">
           <span>Bids: <span className="text-foreground font-semibold">{auction.bidCount}</span></span>
           <span>Unique: <span className="text-pngwin-green font-semibold">{auction.uniqueBids}</span></span>
           <span>Burned: <span className="text-pngwin-red font-semibold">{Number(auction.burnedBids).toFixed(0)}</span></span>
         </div>
 
-        {/* Bid range */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3 relative z-10">
           <span>Range:</span>
           <span className="font-mono font-semibold text-foreground">
@@ -82,7 +75,6 @@ const AuctionLobbyCard = ({ auction }: { auction: Auction }) => {
           </span>
         </div>
 
-        {/* Progress / countdown */}
         {auction.type === 'live_before_hot' && auction.status === 'accumulating' && auction.bidTarget && (
           <div className="relative z-10">
             <div className="flex justify-between text-[11px] mb-1.5">
@@ -109,7 +101,6 @@ const AuctionLobbyCard = ({ auction }: { auction: Auction }) => {
           </div>
         )}
 
-        {/* Bid cost */}
         <div className="mt-3 pt-3 border-t border-border flex justify-between items-center text-xs relative z-10">
           <span className="text-muted-foreground">Bid Cost</span>
           <span className="font-mono font-bold text-primary">
@@ -128,16 +119,31 @@ const AuctionsPage = () => {
 
   const allAuctions = dbAuctions.length > 0 ? dbAuctions : MOCK_AUCTIONS;
 
-  const filtered = activeTab === 'active'
-    ? allAuctions.filter(a => ['accumulating', 'hot_mode', 'grace_period'].includes(a.status))
-    : activeTab === 'history'
-    ? []
-    : allAuctions.filter(a => a.status === activeTab);
+  // Find jackpot auction for featured card
+  const jackpotAuction = allAuctions.find(a => a.type === 'jackpot');
+
+  const filtered = (() => {
+    switch (activeTab) {
+      case 'active':
+        return allAuctions.filter(a => ['accumulating', 'hot_mode', 'grace_period'].includes(a.status));
+      case 'hot_mode':
+        return allAuctions.filter(a => a.status === 'hot_mode' || a.status === 'grace_period');
+      case 'blind':
+        return allAuctions.filter(a => (a.type === 'blind_count' || a.type === 'blind_timed') && ['accumulating', 'hot_mode', 'grace_period'].includes(a.status));
+      case 'ending':
+        return allAuctions.filter(a => a.status === 'grace_period' || (a.type === 'timed' && a.status === 'accumulating'));
+      case 'resolved':
+        return allAuctions.filter(a => a.status === 'resolved');
+      case 'history':
+        return [];
+      default:
+        return allAuctions.filter(a => a.status === activeTab);
+    }
+  })();
 
   const showHistory = activeTab === 'history';
   const historyData = dbHistory.length > 0 ? dbHistory : COMPLETED_AUCTIONS;
 
-  // Sort: hot_mode first, then grace_period, then accumulating
   const statusOrder: Record<string, number> = { hot_mode: 0, grace_period: 1, accumulating: 2 };
   const sorted = [...filtered].sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
 
@@ -146,6 +152,33 @@ const AuctionsPage = () => {
       <div className="container py-8">
         <h1 className="font-display text-3xl font-bold mb-6">🎯 Auction Lobby</h1>
 
+        {/* Jackpot Featured Card */}
+        {jackpotAuction && activeTab !== 'history' && (
+          <Link to={`/auction/${jackpotAuction.id}`}>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card border border-gold/30 rounded-xl p-6 mb-8 glow-gold cursor-pointer hover:border-gold/50 transition-colors"
+            >
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="text-center md:text-left">
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-[3px] mb-1">Weekly Jackpot</div>
+                  <JackpotCounter amount={jackpotAuction.prizePool} />
+                </div>
+                <div className="text-center md:text-right">
+                  <div className="text-xs text-muted-foreground mb-2">
+                    {jackpotAuction.bidCount} bids • {jackpotAuction.uniqueBids} unique
+                  </div>
+                  <div className="px-6 py-2.5 gradient-gold text-primary-foreground font-display font-bold text-sm tracking-wider rounded-lg shadow-gold inline-block">
+                    Enter Jackpot →
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </Link>
+        )}
+
+        {/* Filter Tabs */}
         <div className="flex gap-1.5 mb-8 overflow-x-auto pb-2">
           {statusTabs.map((tab) => (
             <button
@@ -162,7 +195,7 @@ const AuctionsPage = () => {
           ))}
         </div>
 
-        {/* Active auctions */}
+        {/* Active auctions grid */}
         {!showHistory && (
           <>
             {loading ? (
@@ -176,7 +209,7 @@ const AuctionsPage = () => {
             )}
             {!loading && sorted.length === 0 && (
               <div className="text-center py-20 text-muted-foreground">
-                No auctions with this status.
+                No auctions with this filter.
               </div>
             )}
           </>
