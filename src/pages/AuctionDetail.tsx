@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { AUCTIONS } from '@/data/mockData';
 import BidInput from '@/components/BidInput';
@@ -18,12 +18,11 @@ const AuctionDetail = () => {
   const { placeBid } = usePlaceBid();
   const { entries: leaderboardEntries } = useAuctionLeaderboard(id);
 
-  // Live countdown timer
   const [countdown, setCountdown] = useState<string | null>(null);
+  const [showWinnerReveal, setShowWinnerReveal] = useState(false);
 
   useEffect(() => {
     if (!auction.hotModeEndsAt && !auction.timeRemaining) return;
-
     const tick = () => {
       if (auction.hotModeEndsAt) {
         const diff = Math.max(0, Math.floor((new Date(auction.hotModeEndsAt).getTime() - Date.now()) / 1000));
@@ -34,21 +33,28 @@ const AuctionDetail = () => {
         setCountdown(auction.timeRemaining);
       }
     };
-
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [auction.hotModeEndsAt, auction.timeRemaining]);
 
+  // Trigger winner reveal when status changes to resolved
+  useEffect(() => {
+    if (auction.status === 'resolved') {
+      setShowWinnerReveal(true);
+      const t = setTimeout(() => setShowWinnerReveal(false), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [auction.status]);
+
   const isJackpot = auction.type === 'jackpot';
+  const isBlind = auction.type === 'blind_count' || auction.type === 'blind_timed';
   const minBid = auction.minBidValue ?? 0.01;
   const maxBid = auction.maxBidValue ?? 99.99;
+  const isActive = ['accumulating', 'hot_mode', 'grace_period'].includes(auction.status);
 
   const handleBid = async (value: string) => {
-    if (!user) {
-      toast.error('Sign in to place a bid');
-      return;
-    }
+    if (!user) { toast.error('Sign in to place a bid'); return; }
     const result = await placeBid(auction.id, value);
     if (result.success) {
       if (result.is_burned) {
@@ -65,17 +71,82 @@ const AuctionDetail = () => {
     }
   };
 
-  const statusLabel = auction.status === 'hot_mode' ? '🔥 HOT MODE'
-    : auction.status === 'grace_period' ? '⏳ GRACE PERIOD'
-    : auction.status === 'resolved' ? '✅ RESOLVED'
-    : auction.status === 'closed' ? '🔒 CLOSED'
-    : auction.status === 'accumulating' ? '📈 ACCUMULATING'
-    : auction.status.toUpperCase();
+  const statusConfig = {
+    accumulating: { label: '📈 ACCUMULATING', class: 'bg-gold-subtle text-primary border border-gold' },
+    hot_mode: { label: '🔥 HOT MODE', class: 'bg-pngwin-red/20 text-pngwin-red border border-pngwin-red/30 animate-pulse' },
+    grace_period: { label: '⏳ GRACE PERIOD', class: 'bg-pngwin-orange/20 text-pngwin-orange border border-pngwin-orange/30' },
+    resolved: { label: '🏆 RESOLVED', class: 'bg-pngwin-green/20 text-pngwin-green border border-pngwin-green/30' },
+    closed: { label: '🔒 CLOSED', class: 'bg-secondary text-muted-foreground border border-border' },
+    cancelled: { label: '❌ CANCELLED', class: 'bg-secondary text-muted-foreground border border-border' },
+  };
+  const sc = statusConfig[auction.status] ?? statusConfig.accumulating;
 
-  const isActive = ['accumulating', 'hot_mode', 'grace_period'].includes(auction.status);
+  const winnerEntry = leaderboardEntries.length > 0 ? leaderboardEntries[leaderboardEntries.length - 1] : null;
 
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0">
+      {/* Winner Reveal Overlay */}
+      <AnimatePresence>
+        {showWinnerReveal && auction.status === 'resolved' && winnerEntry && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md"
+            onClick={() => setShowWinnerReveal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: 'spring', damping: 15 }}
+              className="text-center p-10"
+            >
+              <motion.div
+                animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                className="text-7xl mb-4"
+              >
+                🏆
+              </motion.div>
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="font-display text-4xl font-bold text-primary mb-2"
+              >
+                Winner!
+              </motion.div>
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.7 }}
+                className="font-display text-2xl text-foreground mb-1"
+              >
+                {winnerEntry.username}
+              </motion.div>
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.9 }}
+                className="font-mono text-lg text-muted-foreground"
+              >
+                Winning bid: {Number(winnerEntry.bid_amount).toFixed(2)}
+              </motion.div>
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 1.1 }}
+                className="font-mono text-3xl font-bold text-primary mt-4"
+              >
+                {auction.prizePool.toLocaleString()} PNGWIN
+              </motion.div>
+              <div className="text-xs text-muted-foreground mt-4">Click to dismiss</div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="container py-6">
         <Link to="/auctions" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
           ← Back to Auctions
@@ -92,13 +163,8 @@ const AuctionDetail = () => {
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-gold-subtle text-primary border border-gold">
                 {auction.type.replace(/_/g, ' ').toUpperCase()}
               </span>
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                auction.status === 'hot_mode' ? 'bg-pngwin-red/20 text-pngwin-red border border-pngwin-red/30 animate-pulse' :
-                auction.status === 'grace_period' ? 'bg-pngwin-orange/20 text-pngwin-orange border border-pngwin-orange/30' :
-                auction.status === 'resolved' ? 'bg-ice/20 text-ice border border-ice/30' :
-                'bg-secondary text-muted-foreground border border-border'
-              }`}>
-                {statusLabel}
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${sc.class}`}>
+                {sc.label}
               </span>
             </div>
           </div>
@@ -108,16 +174,23 @@ const AuctionDetail = () => {
           {/* Left column */}
           <div className="lg:col-span-1 space-y-5">
             {/* Prize Pool */}
-            <div className={`bg-card border rounded-lg p-6 text-center ${
-              auction.status === 'hot_mode' ? 'border-pngwin-red/30 animate-hot' : 'border-border'
-            }`}>
+            <motion.div
+              className={`bg-card border rounded-lg p-6 text-center ${
+                auction.status === 'hot_mode' ? 'border-pngwin-red/30 animate-hot' : 'border-border'
+              }`}
+            >
               <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Prize Pool</div>
-              <div className="font-mono text-4xl font-bold text-primary mb-1">
+              <motion.div
+                key={auction.prizePool}
+                initial={{ scale: 1.1 }}
+                animate={{ scale: 1 }}
+                className="font-mono text-4xl font-bold text-primary mb-1"
+              >
                 {auction.prizePool.toLocaleString()}
-              </div>
+              </motion.div>
               <div className="text-sm text-muted-foreground">PNGWIN</div>
 
-              {/* Accumulation progress for live_before_hot */}
+              {/* Accumulation progress */}
               {auction.type === 'live_before_hot' && auction.status === 'accumulating' && auction.bidTarget && (
                 <div className="mt-4">
                   <div className="text-xs text-muted-foreground mb-1">
@@ -134,13 +207,20 @@ const AuctionDetail = () => {
                 </div>
               )}
 
-              {/* Hot Mode Countdown */}
+              {/* Hot Mode / Grace Period Countdown */}
               {(auction.status === 'hot_mode' || auction.status === 'grace_period') && countdown && (
                 <div className="mt-4">
-                  <div className="font-mono text-5xl font-bold text-pngwin-red animate-pulse">
+                  <motion.div
+                    key={countdown}
+                    initial={{ scale: 1.05 }}
+                    animate={{ scale: 1 }}
+                    className={`font-mono text-5xl font-bold ${
+                      auction.status === 'hot_mode' ? 'text-pngwin-red animate-pulse' : 'text-pngwin-orange'
+                    }`}
+                  >
                     {countdown}
-                  </div>
-                  <div className="text-xs text-pngwin-red mt-1">
+                  </motion.div>
+                  <div className={`text-xs mt-1 ${auction.status === 'hot_mode' ? 'text-pngwin-red' : 'text-pngwin-orange'}`}>
                     {auction.status === 'grace_period' ? 'Grace period — bid to extend!' : 'Every bid extends +30s'}
                   </div>
                 </div>
@@ -154,14 +234,22 @@ const AuctionDetail = () => {
                 </div>
               )}
 
-              {/* Blind */}
-              {(auction.type === 'blind_count' || auction.type === 'blind_timed') && auction.status === 'accumulating' && (
+              {/* Blind mode mystery */}
+              {isBlind && auction.status === 'accumulating' && (
                 <div className="mt-4">
-                  <div className="font-mono text-3xl font-bold text-pngwin-purple animate-pulse">???</div>
-                  <div className="text-xs text-muted-foreground mt-1 italic">This auction could end at any moment...</div>
+                  <motion.div
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="font-mono text-3xl font-bold text-pngwin-purple"
+                  >
+                    ???
+                  </motion.div>
+                  <div className="text-xs text-muted-foreground mt-1 italic">
+                    This auction could end at any moment...
+                  </div>
                 </div>
               )}
-            </div>
+            </motion.div>
 
             {/* Bid Range */}
             <div className="bg-card border border-border rounded-lg p-5">
@@ -185,17 +273,27 @@ const AuctionDetail = () => {
             {/* Bid Input */}
             {isActive && (
               <div className="bg-card border border-border rounded-lg p-6">
-                <BidInput onSubmit={handleBid} bidCost={auction.bidCost} maxValue={maxBid} />
+                <BidInput onSubmit={handleBid} bidCost={auction.bidCost} minValue={minBid} maxValue={maxBid} />
               </div>
             )}
 
             {/* Resolved state */}
             {auction.status === 'resolved' && (
-              <div className="bg-gold-subtle border border-gold rounded-lg p-5 text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gold-subtle border border-gold rounded-lg p-5 text-center cursor-pointer"
+                onClick={() => setShowWinnerReveal(true)}
+              >
                 <div className="text-2xl mb-2">🏆</div>
                 <div className="font-display font-bold text-primary">Auction Resolved</div>
-                <div className="text-xs text-muted-foreground mt-1">Check leaderboard for final results</div>
-              </div>
+                {winnerEntry && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Winner: <span className="text-foreground font-semibold">{winnerEntry.username}</span> — bid {Number(winnerEntry.bid_amount).toFixed(2)}
+                  </div>
+                )}
+                <div className="text-[10px] text-ice mt-2">Click to replay reveal ✨</div>
+              </motion.div>
             )}
 
             {/* Stats */}
@@ -211,7 +309,7 @@ const AuctionDetail = () => {
 
           {/* Right column */}
           <div className="lg:col-span-2 space-y-5">
-            {/* My Last 10 Bids */}
+            {/* My Bids */}
             <div className="bg-card border border-border rounded-lg">
               <div className="px-5 py-3 border-b border-border font-display font-bold text-sm">
                 My Bids {bids.length > 0 && `(${bids.length})`}
@@ -223,7 +321,12 @@ const AuctionDetail = () => {
               ) : (
                 <div className="divide-y divide-border/50">
                   {bids.map((bid) => (
-                    <div key={bid.id} className="px-5 py-3 flex items-center justify-between">
+                    <motion.div
+                      key={bid.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="px-5 py-3 flex items-center justify-between"
+                    >
                       <div className="flex items-center gap-3">
                         <span className={`w-2 h-2 rounded-full ${
                           bid.status === 'unique' ? 'bg-pngwin-green' : 'bg-pngwin-red'
@@ -243,14 +346,14 @@ const AuctionDetail = () => {
                         </span>
                         <span className="text-xs text-muted-foreground">{bid.timestamp}</span>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Leaderboard */}
-            {!isJackpot && (
+            {/* Leaderboard — hidden for blind/jackpot */}
+            {!isJackpot && !isBlind && (
               <div className="bg-card border border-border rounded-lg">
                 <div className="px-5 py-3 border-b border-border flex justify-between items-center">
                   <span className="font-display font-bold text-sm">🏆 Leaderboard</span>
@@ -261,10 +364,18 @@ const AuctionDetail = () => {
                 <div className="divide-y divide-border/50">
                   {leaderboardEntries.length > 0 ? (
                     leaderboardEntries.slice(0, 20).map((entry, i) => (
-                      <div key={i} className="px-5 py-3 flex items-center justify-between">
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className={`px-5 py-3 flex items-center justify-between ${
+                          entry.rank === leaderboardEntries.length ? 'bg-gold-subtle' : ''
+                        }`}
+                      >
                         <div className="flex items-center gap-3">
                           <span className={`font-mono text-sm font-bold w-8 ${
-                            entry.rank === 1 ? 'text-primary' : entry.rank <= 3 ? 'text-ice' : 'text-muted-foreground'
+                            entry.rank === leaderboardEntries.length ? 'text-primary' : entry.rank >= leaderboardEntries.length - 2 ? 'text-ice' : 'text-muted-foreground'
                           }`}>
                             #{entry.rank}
                           </span>
@@ -275,18 +386,41 @@ const AuctionDetail = () => {
                             {Number(entry.bid_amount).toFixed(2)}
                           </span>
                           <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                            entry.rank === 1 ? 'bg-gold-subtle text-primary' : 'bg-pngwin-green/10 text-pngwin-green'
+                            entry.rank === leaderboardEntries.length ? 'bg-gold-subtle text-primary' : 'bg-pngwin-green/10 text-pngwin-green'
                           }`}>
-                            {entry.rank === 1 ? '👑 LEADER' : 'UNIQUE'}
+                            {entry.rank === leaderboardEntries.length ? '👑 LEADER' : 'UNIQUE'}
                           </span>
                         </div>
-                      </div>
+                      </motion.div>
                     ))
                   ) : (
                     <div className="px-5 py-8 text-center text-muted-foreground text-sm">
                       Leaderboard updates after bids are placed
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Blind mode info card */}
+            {isBlind && (
+              <div className="bg-card border border-pngwin-purple/30 rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-2xl">🙈</span>
+                  <span className="font-display font-bold text-sm">Blind Auction</span>
+                </div>
+                <div className="text-xs text-muted-foreground mb-4">
+                  Leaderboard is hidden until the auction resolves. Only you can see your bids above.
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-background rounded-lg p-4 text-center">
+                    <div className="font-mono text-2xl font-bold text-ice">{auction.bidCount}</div>
+                    <div className="text-[10px] text-muted-foreground">Total Bids</div>
+                  </div>
+                  <div className="bg-background rounded-lg p-4 text-center">
+                    <div className="font-mono text-2xl font-bold text-pngwin-green">{bids.length}</div>
+                    <div className="text-[10px] text-muted-foreground">Your Bids</div>
+                  </div>
                 </div>
               </div>
             )}

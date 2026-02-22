@@ -4,13 +4,23 @@ import { Link } from 'react-router-dom';
 import KpiCard from '@/components/KpiCard';
 import { toast } from 'sonner';
 import { MISSED_BONUSES } from '@/data/socialCircleMock';
+import { useSocialCircleSummary } from '@/hooks/useAuctions';
+import { useAuth } from '@/context/AuthContext';
 
-const CIRCLE_DATA = [
+const FALLBACK_CIRCLES = [
   { level: 1, label: 'Circle 1', members: 8, active: 5, color: 'bg-pngwin-green', textColor: 'text-pngwin-green', borderColor: 'border-pngwin-green/30', bonus: '2%' },
   { level: 2, label: 'Circle 2', members: 3, active: 2, color: 'bg-ice', textColor: 'text-ice', borderColor: 'border-ice/30', bonus: '2%' },
   { level: 3, label: 'Circle 3', members: 2, active: 1, color: 'bg-ice', textColor: 'text-ice', borderColor: 'border-ice/30', bonus: '2%' },
   { level: 4, label: 'Circle 4', members: 1, active: 0, color: 'bg-pngwin-purple', textColor: 'text-pngwin-purple', borderColor: 'border-pngwin-purple/30', bonus: '2%' },
   { level: 5, label: 'Circle 5', members: 0, active: 0, color: 'bg-pngwin-purple', textColor: 'text-pngwin-purple', borderColor: 'border-pngwin-purple/30', bonus: '2%' },
+];
+
+const LEVEL_COLORS = [
+  { color: 'bg-pngwin-green', textColor: 'text-pngwin-green', borderColor: 'border-pngwin-green/30' },
+  { color: 'bg-ice', textColor: 'text-ice', borderColor: 'border-ice/30' },
+  { color: 'bg-ice', textColor: 'text-ice', borderColor: 'border-ice/30' },
+  { color: 'bg-pngwin-purple', textColor: 'text-pngwin-purple', borderColor: 'border-pngwin-purple/30' },
+  { color: 'bg-pngwin-purple', textColor: 'text-pngwin-purple', borderColor: 'border-pngwin-purple/30' },
 ];
 
 const TIERS = [
@@ -21,22 +31,43 @@ const TIERS = [
   { name: 'Emperor', min: 50, color: 'text-primary', bonus: '3x' },
 ];
 
-const REFERRAL_EARNINGS = [
-  { user: '@MoonShot', level: 1, earned: 196, event: 'Won Arctic Rush #46' },
-  { user: '@StarGazer', level: 1, earned: 65, event: 'PvP Duel win' },
-  { user: '@ColdFish', level: 2, earned: 40, event: 'Won Quick Freeze' },
-  { user: '@IcyPenguin', level: 3, earned: 18, event: 'Won Blind Auction' },
-  { user: '@SnowDrift', level: 2, earned: 12, event: 'PvP Duel win' },
-];
-
-const totalMembers = CIRCLE_DATA.reduce((a, c) => a + c.members, 0);
-const totalActive = CIRCLE_DATA.reduce((a, c) => a + c.active, 0);
-const totalMissed = MISSED_BONUSES.reduce((a, b) => a + b.missed, 0);
-
 const SocialCirclePage = () => {
+  const { user } = useAuth();
+  const { summary, loading: summaryLoading } = useSocialCircleSummary();
   const [copied, setCopied] = useState(false);
   const [showMissed, setShowMissed] = useState(false);
-  const referralLink = 'https://pngwin.io/ref/cryptoking';
+
+  // Map live data to circle display format
+  const CIRCLE_DATA = (() => {
+    if (summary?.levels && Array.isArray(summary.levels)) {
+      return summary.levels.map((lvl: any, i: number) => ({
+        level: i + 1,
+        label: `Circle ${i + 1}`,
+        members: lvl.total ?? lvl.members ?? 0,
+        active: lvl.active ?? 0,
+        earned: lvl.earned ?? 0,
+        missed: lvl.missed ?? 0,
+        ...LEVEL_COLORS[i],
+        bonus: `${lvl.pct ?? 2}%`,
+      }));
+    }
+    return FALLBACK_CIRCLES;
+  })();
+
+  const totalMembers = CIRCLE_DATA.reduce((a: number, c: any) => a + c.members, 0);
+  const totalActive = CIRCLE_DATA.reduce((a: number, c: any) => a + c.active, 0);
+  const totalEarned = summary?.total_earned ?? 2340;
+  const totalMissed = summary?.total_missed ?? MISSED_BONUSES.reduce((a: number, b: any) => a + b.missed, 0);
+  const referralCode = summary?.referral_code ?? 'cryptoking';
+  const referralLink = `https://pngwin.io/ref/${referralCode}`;
+
+  const recentEarnings = summary?.recent_earnings ?? [
+    { user: '@MoonShot', level: 1, earned: 196, event: 'Won Arctic Rush #46' },
+    { user: '@StarGazer', level: 1, earned: 65, event: 'PvP Duel win' },
+    { user: '@ColdFish', level: 2, earned: 40, event: 'Won Quick Freeze' },
+    { user: '@IcyPenguin', level: 3, earned: 18, event: 'Won Blind Auction' },
+    { user: '@SnowDrift', level: 2, earned: 12, event: 'PvP Duel win' },
+  ];
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralLink);
@@ -55,19 +86,22 @@ const SocialCirclePage = () => {
           </Link>
         </div>
 
+        {summaryLoading && (
+          <div className="text-center py-4 text-muted-foreground text-sm mb-4">Loading social circle data...</div>
+        )}
+
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           <KpiCard label="Total Members" value={totalMembers} color="ice" />
           <KpiCard label="Active This Week" value={totalActive} color="green" />
-          <KpiCard label="Total Earned" value="2,340" color="gold" />
-          {/* Missed Bonuses — clickable */}
+          <KpiCard label="Total Earned" value={totalEarned.toLocaleString()} color="gold" />
           <div
             className="bg-card border border-pngwin-red/20 rounded-lg p-3 text-center cursor-pointer hover:bg-card-hover transition-colors"
             onClick={() => setShowMissed(!showMissed)}
           >
             <div className="font-mono text-xl font-bold text-pngwin-red">{totalMissed}</div>
             <div className="text-[10px] text-muted-foreground">Missed Bonuses</div>
-            <div className="text-[9px] text-pngwin-red mt-0.5">{showMissed ? 'Hide details ▲' : 'Click for details ▼'}</div>
+            <div className="text-[9px] text-pngwin-red mt-0.5">{showMissed ? 'Hide ▲' : 'Details ▼'}</div>
           </div>
         </div>
 
@@ -110,14 +144,12 @@ const SocialCirclePage = () => {
         </AnimatePresence>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Interactive Circle Visualization */}
+          {/* Left: Circle Visualization */}
           <div className="lg:col-span-1 space-y-5">
-            {/* Visualization */}
             <div className="bg-card border border-border rounded-xl p-6">
               <h3 className="font-display font-bold text-sm mb-4 text-center">Your Colony</h3>
               <div className="w-56 h-56 mx-auto relative">
-                {/* Concentric rings */}
-                {CIRCLE_DATA.map((c, i) => {
+                {CIRCLE_DATA.map((c: any, i: number) => {
                   const inset = `${48 - i * 10}%`;
                   const hasMembers = c.members > 0;
                   return (
@@ -131,12 +163,10 @@ const SocialCirclePage = () => {
                     />
                   );
                 })}
-                {/* Center */}
                 <div className="absolute inset-[48%] rounded-full flex items-center justify-center">
                   <div className="w-8 h-8 rounded-full gradient-gold flex items-center justify-center text-[10px] font-bold text-background shadow-gold">YOU</div>
                 </div>
-                {/* Dots */}
-                {CIRCLE_DATA.map((c, ring) => {
+                {CIRCLE_DATA.map((c: any, ring: number) => {
                   if (c.members === 0) return null;
                   const count = Math.min(c.members, 8);
                   const radius = 26 + ring * 14;
@@ -158,7 +188,6 @@ const SocialCirclePage = () => {
                     );
                   });
                 })}
-                {/* Pulse */}
                 {[0, 1].map(i => (
                   <motion.div
                     key={`p-${i}`}
@@ -168,10 +197,8 @@ const SocialCirclePage = () => {
                   />
                 ))}
               </div>
-
-              {/* Level legend */}
               <div className="flex justify-between mt-5">
-                {CIRCLE_DATA.map((c, i) => (
+                {CIRCLE_DATA.map((c: any, i: number) => (
                   <div key={i} className="text-center">
                     <div className="text-[8px] text-muted-foreground">L{c.level}</div>
                     <div className={`font-mono text-xs font-bold ${c.textColor}`}>{c.bonus}</div>
@@ -180,18 +207,21 @@ const SocialCirclePage = () => {
               </div>
             </div>
 
-            {/* Level Breakdown */}
+            {/* Level Breakdown with earnings */}
             <div className="bg-card border border-border rounded-xl p-5">
               <h3 className="font-display font-bold text-sm mb-3">Circle Breakdown</h3>
               <div className="space-y-2">
-                {CIRCLE_DATA.map((c, i) => (
+                {CIRCLE_DATA.map((c: any, i: number) => (
                   <div key={i} className={`flex items-center justify-between px-3 py-2.5 rounded-lg border ${c.members > 0 ? c.borderColor + ' bg-card' : 'border-border/30 bg-muted/20 opacity-50'}`}>
                     <div className="flex items-center gap-2">
                       <div className={`w-2.5 h-2.5 rounded-full ${c.members > 0 ? c.color : 'bg-muted-foreground/30'}`} />
                       <span className="text-xs font-semibold">{c.label}</span>
                     </div>
                     <div className="flex items-center gap-3 text-xs">
-                      <span className="text-muted-foreground">{c.active}/{c.members} active</span>
+                      <span className="text-muted-foreground">{c.active}/{c.members}</span>
+                      {c.earned !== undefined && c.earned > 0 && (
+                        <span className="font-mono font-bold text-pngwin-green">+{c.earned}</span>
+                      )}
                       <span className={`font-mono font-bold ${c.textColor}`}>{c.members}</span>
                     </div>
                   </div>
@@ -256,11 +286,11 @@ const SocialCirclePage = () => {
                   <div className="text-[10px] text-muted-foreground">Active Members</div>
                 </div>
                 <div className="bg-background rounded-lg p-3 text-center">
-                  <div className="font-mono text-xl font-bold text-pngwin-green">47</div>
+                  <div className="font-mono text-xl font-bold text-pngwin-green">{summary?.circle_bids ?? 47}</div>
                   <div className="text-[10px] text-muted-foreground">Bids By Circle</div>
                 </div>
                 <div className="bg-background rounded-lg p-3 text-center">
-                  <div className="font-mono text-xl font-bold text-primary">331</div>
+                  <div className="font-mono text-xl font-bold text-primary">{totalEarned.toLocaleString()}</div>
                   <div className="text-[10px] text-muted-foreground">Earned (PNGWIN)</div>
                 </div>
               </div>
@@ -269,7 +299,7 @@ const SocialCirclePage = () => {
             {/* Earnings Table */}
             <div className="bg-card border border-border rounded-lg">
               <div className="px-5 py-3 border-b border-border font-display font-bold text-sm">Recent Earnings</div>
-              {REFERRAL_EARNINGS.map((e, i) => (
+              {recentEarnings.map((e: any, i: number) => (
                 <div key={i} className="px-5 py-3 flex items-center justify-between border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors">
                   <div className="flex items-center gap-3">
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-ice-subtle text-ice">L{e.level}</span>
