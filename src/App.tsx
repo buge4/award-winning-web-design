@@ -28,6 +28,7 @@ import HowSocialCircleWorks from "./pages/HowSocialCircleWorks";
 import ResultsPage from "./pages/ResultsPage";
 import ProfilePage from "./pages/ProfilePage";
 import JackpotPage from "./pages/JackpotPage";
+import AirdropPresentation from "./pages/AirdropPresentation";
 import NotFound from "./pages/NotFound";
 
 // Admin
@@ -75,6 +76,7 @@ const App = () => (
             <Route path="/results" element={<ResultsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/jackpot" element={<JackpotPage />} />
+            <Route path="/airdrop-deck" element={<AirdropPresentation />} />
 
             {/* Admin routes */}
             <Route path="/admin" element={<AdminLayout />}>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -86,8 +86,12 @@ const AdminCreateAuction = () => {
   const [earlyBirdEnabled, setEarlyBirdEnabled] = useState(false);
   const [earlyBirdCount, setEarlyBirdCount] = useState('10');
   const [earlyBirdReward, setEarlyBirdReward] = useState('5');
-  const [airdropEnabled, setAirdropEnabled] = useState(false);
-  const [airdropAmount, setAirdropAmount] = useState('');
+  const [feeMode, setFeeMode] = useState<'paid' | 'free' | 'mixed'>('paid');
+  const [mixedFreeBids, setMixedFreeBids] = useState('3');
+  const [airdropMode, setAirdropMode] = useState<'none' | 'piggyback' | 'gamified'>('none');
+  const [selectedCampaignId, setSelectedCampaignId] = useState('');
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [rngPickCount, setRngPickCount] = useState('5');
   const [phaseMode, setPhaseMode] = useState<'timed' | 'count' | 'accumulate_hot' | 'timed_count'>('accumulate_hot');
   const [durationHours, setDurationHours] = useState('0');
@@ -97,6 +101,18 @@ const AdminCreateAuction = () => {
   const showJackpotFields = auctionType === 'jackpot';
   const splitTotal = Object.values(split).reduce((a, b) => a + b, 0);
   const typeMeta = AUCTION_TYPES.find(t => t.key === auctionType) ?? AUCTION_TYPES[0];
+
+  // Load airdrop campaigns when airdrop mode requires it
+  useEffect(() => {
+    if (airdropMode === 'none') return;
+    setCampaignsLoading(true);
+    supabase.from('airdrop_campaigns')
+      .select('id, name, token_symbol, total_pool, status')
+      .eq('status', 'active')
+      .then(({ data }) => { setCampaigns(data ?? []); setCampaignsLoading(false); });
+  }, [airdropMode]);
+
+  const selectedCampaign = campaigns.find(c => c.id === selectedCampaignId);
 
   const handleSubmit = async () => {
     if (!name.trim()) { toast.error('Name is required'); return; }
@@ -145,7 +161,17 @@ const AdminCreateAuction = () => {
             resolution_method: resolutionMethod,
             visibility,
             rng_pick_count: (resolutionMethod === 'rng_exact' || resolutionMethod === 'rng_closest') ? parseInt(rngPickCount) : 1,
+            fee_mode: feeMode,
+            airdrop_mode: airdropMode,
+            mixed_free_bids: feeMode === 'mixed' ? parseInt(mixedFreeBids) || 3 : null,
           }).eq('id', instance.config_id);
+        }
+        // Link airdrop campaign if selected
+        if (selectedCampaignId && airdropMode !== 'none') {
+          await supabase.rpc('link_airdrop_to_auction', {
+            p_campaign_id: selectedCampaignId,
+            p_instance_id: instanceId,
+          });
         }
       }
       toast.success(`Auction "${name}" created!`);
@@ -329,13 +355,82 @@ const AdminCreateAuction = () => {
                     </Field>
                   </div>
                 </Toggle>
+              </div>
+            </Section>
+          </div>
 
-                <Toggle label="Airdrop Tokens" icon="🪂" enabled={airdropEnabled} onToggle={() => setAirdropEnabled(!airdropEnabled)}>
-                  <Field label="Tokens per bid">
-                    <input value={airdropAmount} onChange={e => setAirdropAmount(e.target.value)} type="number" placeholder="1"
-                      className="w-full px-2 py-1.5 bg-card border border-border rounded text-xs font-mono focus:outline-none focus:border-primary" />
+          {/* 6 · Airdrop Settings */}
+          <div className="bg-card border border-border rounded-xl p-5 space-y-5">
+            <Section title="Airdrop Settings (optional)">
+              {/* Fee Mode */}
+              <div className="space-y-2">
+                <label className="text-[11px] text-muted-foreground block">Fee Mode</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { key: 'paid', icon: '💰', label: 'Paid', desc: 'Every bid costs the bid fee' },
+                    { key: 'free', icon: '🎁', label: 'Free', desc: 'All bids free (partner-funded)' },
+                    { key: 'mixed', icon: '🔀', label: 'Mixed', desc: 'First N bids free, then paid' },
+                  ] as const).map(fm => (
+                    <button key={fm.key} onClick={() => setFeeMode(fm.key)}
+                      className={`p-2.5 rounded-lg border text-center transition-all ${feeMode === fm.key ? 'border-primary bg-primary/5' : 'border-border hover:border-border-active'}`}>
+                      <div className="text-base mb-0.5">{fm.icon}</div>
+                      <div className="text-[11px] font-bold">{fm.label}</div>
+                      <div className="text-[9px] text-muted-foreground leading-tight">{fm.desc}</div>
+                    </button>
+                  ))}
+                </div>
+                {feeMode === 'mixed' && (
+                  <Field label="Free bids per player" className="mt-2">
+                    <input value={mixedFreeBids} onChange={e => setMixedFreeBids(e.target.value)} type="number" min="1" className={monoInputClass} />
                   </Field>
-                </Toggle>
+                )}
+              </div>
+
+              {/* Airdrop Mode */}
+              <div className="space-y-2 mt-4">
+                <label className="text-[11px] text-muted-foreground block">Airdrop Mode</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { key: 'none', icon: '⛔', label: 'None', desc: 'No airdrop' },
+                    { key: 'piggyback', icon: '🤝', label: 'Piggyback', desc: 'Tokens after auction resolves' },
+                    { key: 'gamified', icon: '🎮', label: 'Gamified', desc: 'Tokens earned per bid' },
+                  ] as const).map(am => (
+                    <button key={am.key} onClick={() => { setAirdropMode(am.key); if (am.key === 'none') setSelectedCampaignId(''); }}
+                      className={`p-2.5 rounded-lg border text-center transition-all ${airdropMode === am.key ? 'border-primary bg-primary/5' : 'border-border hover:border-border-active'}`}>
+                      <div className="text-base mb-0.5">{am.icon}</div>
+                      <div className="text-[11px] font-bold">{am.label}</div>
+                      <div className="text-[9px] text-muted-foreground leading-tight">{am.desc}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {airdropMode !== 'none' && (
+                  <div className="mt-3 space-y-3">
+                    <Field label="Link Airdrop Campaign">
+                      {campaignsLoading ? (
+                        <div className="text-xs text-muted-foreground py-2">Loading campaigns…</div>
+                      ) : campaigns.length === 0 ? (
+                        <div className="text-xs text-muted-foreground py-2">No active campaigns found</div>
+                      ) : (
+                        <select value={selectedCampaignId} onChange={e => setSelectedCampaignId(e.target.value)} className={inputClass}>
+                          <option value="">Select campaign…</option>
+                          {campaigns.map(c => (
+                            <option key={c.id} value={c.id}>{c.name} ({c.token_symbol})</option>
+                          ))}
+                        </select>
+                      )}
+                    </Field>
+                    {selectedCampaign && (
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
+                        <div className="text-xs font-semibold text-primary">{selectedCampaign.name}</div>
+                        <div className="flex gap-4 text-[11px] text-muted-foreground">
+                          <span>Token: <b className="text-foreground">{selectedCampaign.token_symbol}</b></span>
+                          <span>Pool: <b className="text-foreground">{Number(selectedCampaign.total_pool).toLocaleString()}</b></span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </Section>
           </div>
@@ -427,7 +522,7 @@ const AdminCreateAuction = () => {
             </div>
 
             {/* Feature badges */}
-            {(socialCircleEnabled || earlyBirdEnabled || airdropEnabled) && (
+            {(socialCircleEnabled || earlyBirdEnabled || feeMode !== 'paid' || airdropMode !== 'none') && (
               <div className="flex flex-wrap gap-1.5">
                 {socialCircleEnabled && (
                   <span className="px-2 py-1 rounded text-[10px] font-semibold bg-ice/5 text-ice border border-ice/20">
@@ -439,9 +534,19 @@ const AdminCreateAuction = () => {
                     🐣 First {earlyBirdCount}
                   </span>
                 )}
-                {airdropEnabled && (
+                {feeMode === 'free' && (
+                  <span className="px-2 py-1 rounded text-[10px] font-semibold bg-pngwin-green/10 text-pngwin-green border border-pngwin-green/20">
+                    🎁 FREE
+                  </span>
+                )}
+                {feeMode === 'mixed' && (
+                  <span className="px-2 py-1 rounded text-[10px] font-semibold bg-pngwin-green/10 text-pngwin-green border border-pngwin-green/20">
+                    🎁 {mixedFreeBids} Free Bids
+                  </span>
+                )}
+                {airdropMode !== 'none' && (
                   <span className="px-2 py-1 rounded text-[10px] font-semibold bg-primary/5 text-primary border border-primary/20">
-                    🪂 {airdropAmount || '?'}/bid
+                    🪂 Airdrop{selectedCampaign ? ` · ${selectedCampaign.token_symbol}` : ''}
                   </span>
                 )}
               </div>
