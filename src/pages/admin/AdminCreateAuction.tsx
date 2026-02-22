@@ -63,7 +63,9 @@ const AdminCreateAuction = () => {
     try {
       const { user } = (await supabase.auth.getUser()).data;
       const prizeType = auctionType === 'jackpot' ? 'jackpot' : auctionType === 'free' ? 'manual' : 'pool_funded';
-      const { error } = await supabase.rpc('admin_create_auction', {
+      
+      // Step 1: Call RPC with only supported parameters
+      const { data, error } = await supabase.rpc('admin_create_auction', {
         p_admin_id: user?.id,
         p_name: name.trim(),
         p_slug: name.trim().toLowerCase().replace(/\s+/g, '-'),
@@ -83,11 +85,30 @@ const AdminCreateAuction = () => {
         p_split_house_pct: split.platform,
         p_split_social_pct: split.social,
         p_split_jackpot_pct: split.rollover,
-        p_resolution_method: resolutionMethod,
-        p_visibility: visibility,
-        p_rng_pick_count: (resolutionMethod === 'rng_exact' || resolutionMethod === 'rng_closest') ? parseInt(rngPickCount) : null,
       });
       if (error) throw error;
+
+      // Step 2: Get the instance_id (returned by RPC), then find the config_id
+      const instanceId = data;
+      if (instanceId) {
+        const { data: instance } = await supabase
+          .from('auction_instances')
+          .select('config_id')
+          .eq('id', instanceId)
+          .single();
+
+        if (instance?.config_id) {
+          await supabase
+            .from('auction_configs')
+            .update({
+              resolution_method: resolutionMethod,
+              visibility: visibility,
+              rng_pick_count: (resolutionMethod === 'rng_exact' || resolutionMethod === 'rng_closest') ? parseInt(rngPickCount) : 1,
+            })
+            .eq('id', instance.config_id);
+        }
+      }
+
       toast.success(`Auction "${name}" created!`);
       navigate('/admin/auctions');
     } catch (err: any) {
