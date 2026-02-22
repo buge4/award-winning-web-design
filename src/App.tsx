@@ -26,6 +26,9 @@ import HowTournamentsWork from "./pages/HowTournamentsWork";
 import DrawHistoryPage from "./pages/DrawHistoryPage";
 import DrawDetailPage from "./pages/DrawDetailPage";
 import HowSocialCircleWorks from "./pages/HowSocialCircleWorks";
+import ResultsPage from "./pages/ResultsPage";
+import ProfilePage from "./pages/ProfilePage";
+import JackpotPage from "./pages/JackpotPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,6 +64,9 @@ const App = () => (
             <Route path="/signin" element={<AuthPage mode="signin" />} />
             <Route path="/signup" element={<AuthPage mode="signup" />} />
             <Route path="/how-it-works" element={<HowAuctionsWork />} />
+            <Route path="/results" element={<ResultsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/jackpot" element={<JackpotPage />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
