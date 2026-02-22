@@ -22,6 +22,9 @@ export interface Auction {
   totalBidFees?: number;
   visibility?: 'open' | 'blind';
   resolutionMethod?: 'highest_unique_bid' | 'rng_exact' | 'rng_closest';
+  rngPickCount?: number;
+  drawnNumbers?: number[];
+  winningDistance?: number;
 }
 
 export interface Bid {

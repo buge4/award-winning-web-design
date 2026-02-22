@@ -82,6 +82,9 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     totalBidFees: Number(row.total_bid_fees ?? 0),
     visibility: (config.visibility as Auction['visibility']) ?? 'open',
     resolutionMethod: (config.resolution_method as Auction['resolutionMethod']) ?? 'highest_unique_bid',
+    rngPickCount: config.rng_pick_count ? Number(config.rng_pick_count) : undefined,
+    drawnNumbers: row.drawn_numbers ? (row.drawn_numbers as number[]) : undefined,
+    winningDistance: row.winning_distance != null ? Number(row.winning_distance) : undefined,
   };
 };
 
