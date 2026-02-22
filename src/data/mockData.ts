@@ -16,6 +16,10 @@ export interface Auction {
   icon: string;
   rolloverWeek?: number;
   rolloverHistory?: number[];
+  minBidValue?: number;
+  maxBidValue?: number;
+  hotModeEndsAt?: string;
+  totalBidFees?: number;
 }
 
 export interface Bid {
