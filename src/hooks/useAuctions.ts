@@ -76,6 +76,10 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     bidTarget: config.total_bids_to_hot ? Number(config.total_bids_to_hot) : undefined,
     rolloverWeek: row.rollover_week ? Number(row.rollover_week) : undefined,
     rolloverHistory: row.rollover_history ? (row.rollover_history as number[]) : undefined,
+    minBidValue: config.min_bid_value ? Number(config.min_bid_value) : 0.01,
+    maxBidValue: config.max_bid_value ? Number(config.max_bid_value) : 99.99,
+    hotModeEndsAt: row.hot_mode_ends_at ? String(row.hot_mode_ends_at) : undefined,
+    totalBidFees: Number(row.total_bid_fees ?? 0),
   };
 };
 
