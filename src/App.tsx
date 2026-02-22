@@ -8,6 +8,7 @@ import Navbar from "./components/Navbar";
 import MobileNav from "./components/MobileNav";
 import Index from "./pages/Index";
 import AuctionsPage from "./pages/AuctionsPage";
+import EndedAuctionsPage from "./pages/EndedAuctionsPage";
 import AuctionDetail from "./pages/AuctionDetail";
 import RngLiveDraw from "./pages/RngLiveDraw";
 import PvpArena from "./pages/PvpArena";
@@ -54,6 +55,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auctions" element={<AuctionsPage />} />
+            <Route path="/auctions/ended" element={<EndedAuctionsPage />} />
             <Route path="/auction/:id" element={<AuctionDetail />} />
             <Route path="/auction/:id/draw" element={<RngLiveDraw />} />
             <Route path="/draws" element={<DrawHistoryPage />} />

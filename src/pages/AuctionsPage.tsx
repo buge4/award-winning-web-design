@@ -75,8 +75,6 @@ const statusTabs = [
   { label: '📈 Live', value: 'accumulating' },
   { label: '🙈 Blind', value: 'blind' },
   { label: '⏳ Ending Soon', value: 'ending' },
-  { label: '✅ Resolved', value: 'resolved' },
-  { label: '📜 History', value: 'history' },
 ];
 
 const TYPE_ICONS: Record<string, string> = {
@@ -195,7 +193,6 @@ const AuctionLobbyCard = ({ auction }: { auction: Auction }) => {
 const AuctionsPage = () => {
   const [activeTab, setActiveTab] = useState('active');
   const { auctions: dbAuctions, loading } = useAuctions();
-  const { auctions: dbHistory, loading: loadingHistory } = useAuctionHistory();
 
   const allAuctions = dbAuctions.length > 0 ? dbAuctions : MOCK_AUCTIONS;
 
@@ -203,26 +200,20 @@ const AuctionsPage = () => {
   const jackpotAuction = allAuctions.find(a => a.type === 'jackpot');
 
   const filtered = (() => {
+    const activeStatuses = ['accumulating', 'hot_mode', 'grace_period'];
     switch (activeTab) {
       case 'active':
-        return allAuctions.filter(a => ['accumulating', 'hot_mode', 'grace_period'].includes(a.status));
+        return allAuctions.filter(a => activeStatuses.includes(a.status));
       case 'hot_mode':
         return allAuctions.filter(a => a.status === 'hot_mode' || a.status === 'grace_period');
       case 'blind':
-        return allAuctions.filter(a => (a.type === 'blind_count' || a.type === 'blind_timed') && ['accumulating', 'hot_mode', 'grace_period'].includes(a.status));
+        return allAuctions.filter(a => (a.type === 'blind_count' || a.type === 'blind_timed') && activeStatuses.includes(a.status));
       case 'ending':
         return allAuctions.filter(a => a.status === 'grace_period' || (a.type === 'timed' && a.status === 'accumulating'));
-      case 'resolved':
-        return allAuctions.filter(a => a.status === 'resolved');
-      case 'history':
-        return [];
       default:
-        return allAuctions.filter(a => a.status === activeTab);
+        return allAuctions.filter(a => a.status === activeTab && activeStatuses.includes(a.status));
     }
   })();
-
-  const showHistory = activeTab === 'history';
-  const historyData = dbHistory.length > 0 ? dbHistory : COMPLETED_AUCTIONS;
 
   const statusOrder: Record<string, number> = { hot_mode: 0, grace_period: 1, accumulating: 2 };
   const sorted = [...filtered].sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
@@ -230,7 +221,12 @@ const AuctionsPage = () => {
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0">
       <div className="container py-8">
-        <h1 className="font-display text-3xl font-bold mb-6">🎯 Auction Lobby</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="font-display text-3xl font-bold">🎯 Auction Lobby</h1>
+          <Link to="/auctions/ended" className="text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded-lg px-3 py-1.5">
+            📜 Ended Auctions
+          </Link>
+        </div>
 
         {/* Jackpot Featured Card */}
         {jackpotAuction && activeTab !== 'history' && (
@@ -255,56 +251,18 @@ const AuctionsPage = () => {
         </div>
 
         {/* Active auctions grid */}
-        {!showHistory && (
-          <>
-            {loading ? (
-              <div className="text-center py-20 text-muted-foreground text-sm">Loading auctions...</div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {sorted.map((auction) => (
-                  <AuctionLobbyCard key={auction.id} auction={auction} />
-                ))}
-              </div>
-            )}
-            {!loading && sorted.length === 0 && (
-              <div className="text-center py-20 text-muted-foreground">
-                No auctions with this filter.
-              </div>
-            )}
-          </>
+        {loading ? (
+          <div className="text-center py-20 text-muted-foreground text-sm">Loading auctions...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sorted.map((auction) => (
+              <AuctionLobbyCard key={auction.id} auction={auction} />
+            ))}
+          </div>
         )}
-
-        {/* History */}
-        {showHistory && (
-          <div className="space-y-3">
-            {loadingHistory ? (
-              <div className="text-center py-20 text-muted-foreground text-sm">Loading history...</div>
-            ) : (
-              historyData.map((auction) => (
-                <div key={auction.id} className="bg-card border border-border rounded-lg p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-lg">{TYPE_ICONS[auction.type] || '🎯'}</span>
-                        <span className="font-display font-bold text-base">{auction.title}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">{auction.date}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-ice">{auction.winner}</div>
-                      <div className="font-mono text-xs text-muted-foreground">bid {auction.winningBid}</div>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
-                    <span>🏆 <span className="font-mono font-bold text-pngwin-green">{auction.prizeWon.toLocaleString()} PNGWIN</span></span>
-                    <span>•</span>
-                    <span>{auction.players} players</span>
-                    <span>•</span>
-                    <span>{auction.totalBids} bids</span>
-                  </div>
-                </div>
-              ))
-            )}
+        {!loading && sorted.length === 0 && (
+          <div className="text-center py-20 text-muted-foreground">
+            No auctions with this filter.
           </div>
         )}
       </div>
