@@ -9,6 +9,32 @@ import { toast } from 'sonner';
 import { useMyBids, usePlaceBid, useAuctionDetail, useAuctionLeaderboard } from '@/hooks/useAuctions';
 import { useAuth } from '@/context/AuthContext';
 
+/** Inline countdown component for scheduled_end */
+const TimedCountdown = ({ scheduledEnd }: { scheduledEnd: string }) => {
+  const [remaining, setRemaining] = useState('');
+  useEffect(() => {
+    const tick = () => {
+      const diff = Math.max(0, Math.floor((new Date(scheduledEnd).getTime() - Date.now()) / 1000));
+      if (diff <= 0) { setRemaining('Ended'); return; }
+      const h = Math.floor(diff / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
+      setRemaining(h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [scheduledEnd]);
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-muted-foreground">Time Remaining</span>
+        <span className="font-mono font-bold text-foreground">{remaining}</span>
+      </div>
+    </div>
+  );
+};
+
 const AuctionDetail = () => {
   const { id } = useParams();
   const { user } = useAuth();
@@ -361,11 +387,52 @@ const AuctionDetail = () => {
               </motion.div>
             )}
 
+            {/* End condition progress bars */}
+            {isActive && (auction.totalBidsToClose || auction.scheduledEnd) && (
+              <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+                <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">End Conditions</div>
+                {auction.totalBidsToClose && (
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-muted-foreground">Bid Count</span>
+                      <span className="font-mono font-bold text-foreground">{auction.bidCount}/{auction.totalBidsToClose}</span>
+                    </div>
+                    <div className="h-2 bg-border rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full bg-gradient-to-r from-ice to-primary"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, (auction.bidCount / auction.totalBidsToClose) * 100)}%` }}
+                        transition={{ duration: 0.8 }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {auction.scheduledEnd && (
+                  <TimedCountdown scheduledEnd={auction.scheduledEnd} />
+                )}
+                {auction.totalBidsToClose && auction.scheduledEnd && (
+                  <div className="text-[10px] text-muted-foreground text-center italic">
+                    Ends at {auction.totalBidsToClose} bids OR when timer expires — whichever comes first
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Stats */}
             <div className="grid grid-cols-3 gap-2">
               <KpiCard label="Total Bids" value={auction.bidCount} color="ice" />
-              <KpiCard label="Unique" value={auction.uniqueBids} color="green" />
-              <KpiCard label="Burned" value={Number(auction.burnedBids.toFixed(0))} color="red" />
+              {/* Hide unique/burned counts for blind auctions that aren't resolved */}
+              {(!isBlind || auction.status === 'resolved') ? (
+                <>
+                  <KpiCard label="Unique" value={auction.uniqueBids} color="green" />
+                  <KpiCard label="Burned" value={Number(auction.burnedBids.toFixed(0))} color="red" />
+                </>
+              ) : (
+                <>
+                  <KpiCard label="Unique" value="???" color="green" />
+                  <KpiCard label="Burned" value="???" color="red" />
+                </>
+              )}
             </div>
 
             {/* Social Circle Widget */}
@@ -393,23 +460,40 @@ const AuctionDetail = () => {
                       className="px-5 py-3 flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
-                        <span className={`w-2 h-2 rounded-full ${
-                          bid.status === 'unique' ? 'bg-pngwin-green' : 'bg-pngwin-red'
-                        }`} />
+                        {/* Hide status indicator for blind auctions that aren't resolved */}
+                        {(isBlind && auction.status !== 'resolved') ? (
+                          <span className="w-2 h-2 rounded-full bg-pngwin-purple/50" />
+                        ) : (
+                          <span className={`w-2 h-2 rounded-full ${
+                            bid.status === 'unique' ? 'bg-pngwin-green' : 'bg-pngwin-red'
+                          }`} />
+                        )}
                         <span className="font-mono text-lg font-bold">{bid.value}</span>
                       </div>
                       <div className="flex items-center gap-4">
-                        {bid.status === 'unique' && bid.position && !isJackpot && (
-                          <span className="text-xs text-pngwin-green font-semibold">#{bid.position}</span>
+                        {/* Hide position and status for blind auctions */}
+                        {(isBlind && auction.status !== 'resolved') ? (
+                          <>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase bg-pngwin-purple/10 text-pngwin-purple">
+                              SEALED
+                            </span>
+                            <span className="text-xs text-muted-foreground">{bid.timestamp}</span>
+                          </>
+                        ) : (
+                          <>
+                            {bid.status === 'unique' && bid.position && !isJackpot && (
+                              <span className="text-xs text-pngwin-green font-semibold">#{bid.position}</span>
+                            )}
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                              bid.status === 'unique'
+                                ? 'bg-pngwin-green/10 text-pngwin-green'
+                                : 'bg-pngwin-red/10 text-pngwin-red'
+                            }`}>
+                              {bid.status}
+                            </span>
+                            <span className="text-xs text-muted-foreground">{bid.timestamp}</span>
+                          </>
                         )}
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                          bid.status === 'unique'
-                            ? 'bg-pngwin-green/10 text-pngwin-green'
-                            : 'bg-pngwin-red/10 text-pngwin-red'
-                        }`}>
-                          {bid.status}
-                        </span>
-                        <span className="text-xs text-muted-foreground">{bid.timestamp}</span>
                       </div>
                     </motion.div>
                   ))}

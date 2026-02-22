@@ -48,10 +48,10 @@ const AdminCreateAuction = () => {
   const [airdropEnabled, setAirdropEnabled] = useState(false);
   const [airdropAmount, setAirdropAmount] = useState('');
   const [rngPickCount, setRngPickCount] = useState('5');
+  const [phaseMode, setPhaseMode] = useState<'timed' | 'count' | 'accumulate_hot' | 'timed_count'>('accumulate_hot');
+  const [durationHours, setDurationHours] = useState('0');
+  const [durationMinutes, setDurationMinutes] = useState('15');
 
-  const showLiveFields = auctionType === 'live_before_hot';
-  const showTimedFields = ['timed', 'blind_timed'].includes(auctionType);
-  const showBlindCountFields = auctionType === 'blind_count';
   const showFreeFields = auctionType === 'free';
   const showJackpotFields = auctionType === 'jackpot';
   const splitTotal = Object.values(split).reduce((a, b) => a + b, 0);
@@ -59,6 +59,22 @@ const AdminCreateAuction = () => {
   const handleSubmit = async () => {
     if (!name.trim()) { toast.error('Name is required'); return; }
     if (splitTotal !== 100) { toast.error('Revenue split must total 100%'); return; }
+
+    // Compute duration_seconds from phase mode
+    const computedDuration = (phaseMode === 'timed' || phaseMode === 'timed_count')
+      ? (parseInt(durationHours || '0') * 3600 + parseInt(durationMinutes || '0') * 60) || null
+      : null;
+    const computedBidsToClose = (phaseMode === 'count' || phaseMode === 'timed_count')
+      ? parseInt(totalBidsLimit) || null
+      : null;
+    const computedBidsToHot = phaseMode === 'accumulate_hot' ? parseInt(bidsToHot) || null : null;
+    const computedHotDuration = phaseMode === 'accumulate_hot' ? parseInt(hotDuration) || null : null;
+
+    // Validation: at least one end condition
+    if (!computedDuration && !computedBidsToClose && !computedBidsToHot) {
+      toast.error('Auction must have at least one end condition (duration, max bids, or accumulate→hot)');
+      return;
+    }
     setSubmitting(true);
     try {
       const { user } = (await supabase.auth.getUser()).data;
@@ -73,10 +89,10 @@ const AdminCreateAuction = () => {
         p_bid_fee: parseFloat(bidFee),
         p_min_bid_value: parseFloat(minBidValue),
         p_max_bid_value: parseFloat(maxBidValue),
-        p_duration_seconds: showTimedFields ? parseInt(totalDuration) : null,
-        p_total_bids_to_hot: showLiveFields ? parseInt(bidsToHot) : null,
-        p_hot_mode_duration_seconds: showLiveFields ? parseInt(hotDuration) : null,
-        p_total_bids_to_close: showBlindCountFields ? parseInt(totalBidsLimit) : null,
+        p_duration_seconds: computedDuration,
+        p_total_bids_to_hot: computedBidsToHot,
+        p_hot_mode_duration_seconds: computedHotDuration,
+        p_total_bids_to_close: computedBidsToClose,
         p_prize_type: prizeType,
         p_manual_prize_title: showFreeFields ? prizeDescription : null,
         p_jackpot_seed: showJackpotFields ? parseFloat(jackpotSeed || '0') : 0,
@@ -206,31 +222,61 @@ const AdminCreateAuction = () => {
               </div>
             </div>
 
-            {/* Conditional fields */}
-            {showLiveFields && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Bids to Hot</label>
-                  <input value={bidsToHot} onChange={e => setBidsToHot(e.target.value)} type="number" className={monoInputClass} />
+            {/* Phase Mode — End Condition */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-2 block">⏱️ Phase Mode — How does this auction end?</label>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {([
+                  { key: 'timed', icon: '⏱️', label: 'Timed', desc: 'Ends when time runs out' },
+                  { key: 'count', icon: '🔢', label: 'Count-based', desc: 'Ends when max bids reached' },
+                  { key: 'accumulate_hot', icon: '🔥', label: 'Accumulate → Hot', desc: 'Bids trigger hot mode countdown' },
+                  { key: 'timed_count', icon: '⚡', label: 'Timed + Count', desc: 'Whichever comes first' },
+                ] as const).map(pm => (
+                  <button key={pm.key} onClick={() => setPhaseMode(pm.key)}
+                    className={`p-3 rounded-lg border text-center transition-all ${phaseMode === pm.key ? 'border-primary bg-gold-subtle' : 'border-border hover:border-border-active'}`}>
+                    <div className="text-lg mb-0.5">{pm.icon}</div>
+                    <div className="text-xs font-bold">{pm.label}</div>
+                    <div className="text-[9px] text-muted-foreground">{pm.desc}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Timed fields */}
+              {(phaseMode === 'timed' || phaseMode === 'timed_count') && (
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Hours</label>
+                    <input value={durationHours} onChange={e => setDurationHours(e.target.value)} type="number" min="0" className={monoInputClass} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Minutes</label>
+                    <input value={durationMinutes} onChange={e => setDurationMinutes(e.target.value)} type="number" min="0" max="59" className={monoInputClass} />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Hot Duration (sec)</label>
-                  <input value={hotDuration} onChange={e => setHotDuration(e.target.value)} type="number" className={monoInputClass} />
+              )}
+
+              {/* Count fields */}
+              {(phaseMode === 'count' || phaseMode === 'timed_count') && (
+                <div className="mb-3">
+                  <label className="text-xs text-muted-foreground mb-1 block">Max Bids (auction ends at this count)</label>
+                  <input value={totalBidsLimit} onChange={e => setTotalBidsLimit(e.target.value)} type="number" className={monoInputClass} />
                 </div>
-              </div>
-            )}
-            {showTimedFields && (
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Total Duration (sec)</label>
-                <input value={totalDuration} onChange={e => setTotalDuration(e.target.value)} type="number" className={monoInputClass} />
-              </div>
-            )}
-            {showBlindCountFields && (
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Total Bids Limit</label>
-                <input value={totalBidsLimit} onChange={e => setTotalBidsLimit(e.target.value)} type="number" className={monoInputClass} />
-              </div>
-            )}
+              )}
+
+              {/* Accumulate → Hot fields */}
+              {phaseMode === 'accumulate_hot' && (
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Bids to trigger Hot Mode</label>
+                    <input value={bidsToHot} onChange={e => setBidsToHot(e.target.value)} type="number" className={monoInputClass} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Hot Mode Duration (sec)</label>
+                    <input value={hotDuration} onChange={e => setHotDuration(e.target.value)} type="number" className={monoInputClass} />
+                  </div>
+                </div>
+              )}
+            </div>
             {showFreeFields && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -393,7 +439,7 @@ const AdminCreateAuction = () => {
                   {parseFloat(minBidValue || '0.01').toFixed(2)} — {parseFloat(maxBidValue || '99.99').toFixed(2)}
                 </span>
               </div>
-              {showLiveFields && (
+              {phaseMode === 'accumulate_hot' && (
                 <div className="mb-3">
                   <div className="flex justify-between text-[11px] mb-1.5">
                     <span className="text-muted-foreground">Bids to Hot Mode</span>

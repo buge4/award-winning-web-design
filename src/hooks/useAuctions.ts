@@ -85,6 +85,8 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     rngPickCount: config.rng_pick_count ? Number(config.rng_pick_count) : undefined,
     drawnNumbers: row.drawn_numbers ? (row.drawn_numbers as number[]) : undefined,
     winningDistance: row.winning_distance != null ? Number(row.winning_distance) : undefined,
+    totalBidsToClose: config.total_bids_to_close ? Number(config.total_bids_to_close) : undefined,
+    scheduledEnd: row.scheduled_end ? String(row.scheduled_end) : undefined,
   };
 };
 
