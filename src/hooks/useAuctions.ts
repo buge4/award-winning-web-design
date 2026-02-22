@@ -80,6 +80,8 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     maxBidValue: config.max_bid_value ? Number(config.max_bid_value) : 99.99,
     hotModeEndsAt: row.hot_mode_ends_at ? String(row.hot_mode_ends_at) : undefined,
     totalBidFees: Number(row.total_bid_fees ?? 0),
+    visibility: (config.visibility as Auction['visibility']) ?? 'open',
+    resolutionMethod: (config.resolution_method as Auction['resolutionMethod']) ?? 'highest_unique_bid',
   };
 };
 

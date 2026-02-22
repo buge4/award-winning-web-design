@@ -16,7 +16,10 @@ const AuctionDetail = () => {
   const auction = dbAuction ?? AUCTIONS.find((a) => a.id === id) ?? AUCTIONS[0];
   const { bids, refetch: refetchBids } = useMyBids(id);
   const { placeBid } = usePlaceBid();
-  const { entries: leaderboardEntries } = useAuctionLeaderboard(id);
+  // Only fetch leaderboard if visibility is 'open' OR auction is resolved
+  const isBlindConfig = auction?.visibility === 'blind';
+  const shouldShowLeaderboard = !isBlindConfig || auction?.status === 'resolved';
+  const { entries: leaderboardEntries } = useAuctionLeaderboard(shouldShowLeaderboard ? id : undefined);
 
   const [countdown, setCountdown] = useState<string | null>(null);
   const [showWinnerReveal, setShowWinnerReveal] = useState(false);
@@ -48,7 +51,7 @@ const AuctionDetail = () => {
   }, [auction.status]);
 
   const isJackpot = auction.type === 'jackpot';
-  const isBlind = auction.type === 'blind_count' || auction.type === 'blind_timed';
+  const isBlind = auction.visibility === 'blind' || auction.type === 'blind_count' || auction.type === 'blind_timed';
   const minBid = auction.minBidValue ?? 0.01;
   const maxBid = auction.maxBidValue ?? 99.99;
   const isActive = ['accumulating', 'hot_mode', 'grace_period'].includes(auction.status);
@@ -352,8 +355,8 @@ const AuctionDetail = () => {
               )}
             </div>
 
-            {/* Leaderboard — hidden for blind/jackpot */}
-            {!isJackpot && !isBlind && (
+            {/* Leaderboard — hidden for blind/jackpot until resolved */}
+            {!isJackpot && shouldShowLeaderboard && (
               <div className="bg-card border border-border rounded-lg">
                 <div className="px-5 py-3 border-b border-border flex justify-between items-center">
                   <span className="font-display font-bold text-sm">🏆 Leaderboard</span>
