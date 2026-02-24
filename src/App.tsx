@@ -41,6 +41,7 @@ import AdminCreateAuction from "./pages/admin/AdminCreateAuction";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminFinance from "./pages/admin/AdminFinance";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminClaude from "./pages/admin/AdminClaude";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +89,7 @@ const App = () => (
               <Route path="auctions/:id" element={<AdminAuctionDetail />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="finance" element={<AdminFinance />} />
+              <Route path="claude" element={<AdminClaude />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>
             
