@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { supabase } from '@/lib/supabase';
+
 
 type Message = { role: 'user' | 'assistant' | 'error'; content: string };
 
@@ -33,14 +33,20 @@ const AdminClaude = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('claude-admin-chat', {
-        body: {
+      const response = await fetch('http://89.167.102.46:3000/api/claude-admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Key': 'cpx-admin-2026',
+        },
+        body: JSON.stringify({
           message: text.trim(),
           conversation_history: history.map(m => ({ role: m.role, content: m.content })),
-        },
+        }),
       });
 
-      if (error) throw new Error(error.message ?? 'Edge function error');
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      const data = await response.json();
       if (data?.error) throw new Error(data.error);
 
       setMessages(prev => [...prev, { role: 'assistant', content: data.response ?? 'No response' }]);
