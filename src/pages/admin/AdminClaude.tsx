@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { supabase } from '@/lib/supabase';
 
 type Message = { role: 'user' | 'assistant' | 'error'; content: string };
+
+const API_URL = 'http://89.167.102.46:3000/api/claude-admin';
+const API_KEY = 'cpx-admin-2026';
 
 const STARTER_PROMPTS = [
   'List active auctions',
@@ -33,14 +35,17 @@ const AdminClaude = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('claude-admin-chat', {
-        body: {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': API_KEY },
+        body: JSON.stringify({
           message: text.trim(),
           conversation_history: history.map(m => ({ role: m.role, content: m.content })),
-        },
+        }),
       });
 
-      if (error) throw new Error(error.message ?? 'Edge function error');
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      const data = await res.json();
       if (data?.error) throw new Error(data.error);
 
       setMessages(prev => [...prev, { role: 'assistant', content: data.response ?? 'No response' }]);
