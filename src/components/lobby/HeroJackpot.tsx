@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import JackpotHistory from './JackpotHistory';
 
 interface RolloverWeek {
   week: number;
@@ -162,6 +163,9 @@ const HeroJackpot = ({ prizePool, week, status, bidFee, endsAt, rolloverHistory 
             </Link>
           </motion.div>
         </div>
+
+        {/* Previous Draws */}
+        <JackpotHistory />
       </div>
     </section>
   );

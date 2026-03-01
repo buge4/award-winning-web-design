@@ -4,6 +4,7 @@ import HeroJackpot from '@/components/lobby/HeroJackpot';
 import FeaturedAuctionCard from '@/components/lobby/FeaturedAuctionCard';
 import MyRecentBids from '@/components/lobby/MyRecentBids';
 import LobbyLeaderboard from '@/components/lobby/LobbyLeaderboard';
+import BurnCounters from '@/components/lobby/BurnCounters';
 import LiveTicker from '@/components/LiveTicker';
 import { useHeroJackpot, useFeaturedAuction } from '@/hooks/useLobbyData';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,7 +17,6 @@ const FALLBACK_ROLLOVER = [
   { week: 5, amount: 150000, isCurrent: true },
 ];
 
-// Friday 20:00 UTC — next draw
 const getNextFriday = () => {
   const now = new Date();
   const d = new Date(now);
@@ -31,8 +31,8 @@ const getNextFriday = () => {
 const Index = () => {
   const { data: jackpot, loading: jackpotLoading } = useHeroJackpot();
   const { data: daily, loading: dailyLoading } = useFeaturedAuction('Daily');
-  const { data: rush, loading: rushLoading } = useFeaturedAuction('Rush');
   const { data: shadow, loading: shadowLoading } = useFeaturedAuction('Shadow');
+  const { data: hourly, loading: hourlyLoading } = useFeaturedAuction('Hourly');
 
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0">
@@ -48,6 +48,11 @@ const Index = () => {
 
       {/* Live Ticker */}
       <LiveTicker />
+
+      {/* ═══════ BURN COUNTERS ═══════ */}
+      <div className="container py-5">
+        <BurnCounters />
+      </div>
 
       {/* ═══════ 3 FEATURED AUCTIONS ═══════ */}
       <div className="container py-10">
@@ -83,34 +88,7 @@ const Index = () => {
             <div className="bg-card border border-border rounded-2xl p-6 text-center text-muted-foreground">No active Daily auction</div>
           )}
 
-          {/* Arctic Rush */}
-          {rushLoading ? (
-            <Skeleton className="h-[400px] rounded-2xl" />
-          ) : rush ? (
-            <FeaturedAuctionCard
-              id={rush.id}
-              title={rush.title}
-              badges={[
-                { label: rush.status === 'hot_mode' ? 'HOT 🔥' : 'LIVE', variant: rush.status === 'hot_mode' ? 'hot' : 'live' },
-                { label: 'ACCUMULATING', variant: 'accumulating' },
-              ]}
-              history={rush.history}
-              closeInfo="🔥"
-              closeTimer={rush.totalBidsToHot ? `${rush.totalBids} / ${rush.totalBidsToHot} bids until HOT MODE` : '—'}
-              bids={rush.totalBids}
-              unique={rush.uniqueBidders}
-              burned={rush.burnedAmount}
-              typeDesc="🚀 Live auction. Accumulates bids → enters HOT MODE. Frantic last-minute bidding. Anti-snipe protection."
-              pool={`${rush.prizePool.toLocaleString()} PNGWIN`}
-              fee={`${rush.bidFee} PNGWIN/bid`}
-              hotProgress={rush.totalBidsToHot ? { current: rush.totalBids, target: rush.totalBidsToHot } : undefined}
-              delay={0.1}
-            />
-          ) : (
-            <div className="bg-card border border-border rounded-2xl p-6 text-center text-muted-foreground">No active Rush auction</div>
-          )}
-
-          {/* Shadow Bid */}
+          {/* Weekly Shadow Bid */}
           {shadowLoading ? (
             <Skeleton className="h-[400px] rounded-2xl" />
           ) : shadow ? (
@@ -119,7 +97,7 @@ const Index = () => {
               title={shadow.title}
               badges={[
                 { label: 'BLIND', variant: 'blind' },
-                { label: 'OPEN', variant: 'open' },
+                { label: 'WEEKLY', variant: 'open' },
               ]}
               history={shadow.history}
               closeInfo="⏰ Closes in"
@@ -130,10 +108,36 @@ const Index = () => {
               typeDesc="🫣 Blind auction. You only see YOUR bids. No leaderboard until reveal. Pure strategy."
               pool={shadow.visibility === 'blind' ? 'Hidden' : `${shadow.prizePool.toLocaleString()} PNGWIN`}
               fee={`${shadow.bidFee} PNGWIN/bid`}
-              delay={0.2}
+              delay={0.1}
             />
           ) : (
             <div className="bg-card border border-border rounded-2xl p-6 text-center text-muted-foreground">No active Shadow auction</div>
+          )}
+
+          {/* Hourly Rush */}
+          {hourlyLoading ? (
+            <Skeleton className="h-[400px] rounded-2xl" />
+          ) : hourly ? (
+            <FeaturedAuctionCard
+              id={hourly.id}
+              title={hourly.title}
+              badges={[
+                { label: hourly.status === 'hot_mode' ? 'HOT 🔥' : 'LIVE', variant: hourly.status === 'hot_mode' ? 'hot' : 'live' },
+                { label: 'HOURLY', variant: 'accumulating' },
+              ]}
+              history={hourly.history}
+              closeInfo="⏰ Closes in"
+              closeTimer={hourly.scheduledEnd ? formatCountdownShort(hourly.scheduledEnd) : '—'}
+              bids={hourly.totalBids}
+              unique={hourly.uniqueBidders}
+              burned={hourly.burnedAmount}
+              typeDesc="⚡ Fast-paced hourly auction. Quick rounds, lower entry. Perfect for active players."
+              pool={`${hourly.prizePool.toLocaleString()} PNGWIN`}
+              fee={`${hourly.bidFee} PNGWIN/bid`}
+              delay={0.2}
+            />
+          ) : (
+            <div className="bg-card border border-border rounded-2xl p-6 text-center text-muted-foreground">No active Hourly auction</div>
           )}
         </div>
       </div>

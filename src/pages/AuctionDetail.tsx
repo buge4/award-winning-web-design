@@ -5,8 +5,10 @@ import { AUCTIONS } from '@/data/mockData';
 import BidInput from '@/components/BidInput';
 import KpiCard from '@/components/KpiCard';
 import SocialCircleWidget from '@/components/SocialCircleWidget';
+import AuctionResults from '@/components/auction/AuctionResults';
 import { toast } from 'sonner';
 import { useMyBids, usePlaceBid, useAuctionDetail, useAuctionLeaderboard } from '@/hooks/useAuctions';
+import { useAuctionResults } from '@/hooks/useAuctionResults';
 import { useAuth } from '@/context/AuthContext';
 
 /** Inline countdown component for scheduled_end */
@@ -47,7 +49,7 @@ const AuctionDetail = () => {
   const isResolved = auction?.status === 'resolved' || auction?.status === 'closed';
   const shouldShowLeaderboard = !isBlindConfig || isResolved;
   const { entries: leaderboardEntries } = useAuctionLeaderboard(shouldShowLeaderboard ? id : undefined);
-
+  const { data: resultsData } = useAuctionResults(isResolved ? id : undefined);
   const [countdown, setCountdown] = useState<string | null>(null);
   const [showWinnerReveal, setShowWinnerReveal] = useState(false);
 
@@ -577,6 +579,22 @@ const AuctionDetail = () => {
             )}
           </div>
         </div>
+
+        {/* ═══════ FULL RESULTS (resolved only) ═══════ */}
+        {isResolved && resultsData && (
+          <div className="mt-8">
+            <AuctionResults
+              auctionTitle={resultsData.auctionTitle}
+              resolvedDate={resultsData.resolvedDate}
+              totalPool={resultsData.totalPool}
+              totalCollected={resultsData.totalCollected}
+              winners={resultsData.winners}
+              allBids={resultsData.allBids}
+              accounting={resultsData.accounting}
+              userPerformance={resultsData.userPerformance}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
