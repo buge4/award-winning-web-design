@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import UplineSection from '@/components/admin/users/UplineSection';
 import ReferralSummary from '@/components/admin/users/ReferralSummary';
@@ -7,6 +8,7 @@ import UserStatsCards from '@/components/admin/users/UserStatsCards';
 import TransactionHistory from '@/components/admin/users/TransactionHistory';
 import BidHistory from '@/components/admin/users/BidHistory';
 import CreditModal from '@/components/admin/users/CreditModal';
+import { CURRENCIES, getCurrencyConfig, formatCurrencyAmount } from '@/lib/currencies';
 
 const AdminUsers = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -16,20 +18,30 @@ const AdminUsers = () => {
   const [sortBy, setSortBy] = useState<'date' | 'balance'>('date');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [userDetail, setUserDetail] = useState<any>(null);
+  const [userWallets, setUserWallets] = useState<Record<string, number>>({});
   const [creditModal, setCreditModal] = useState<{ userId: string; username: string } | null>(null);
   const [creditAmount, setCreditAmount] = useState('');
   const [creditDirection, setCreditDirection] = useState<'IN' | 'OUT'>('IN');
   const [creditReason, setCreditReason] = useState('');
+  const [creditCurrency, setCreditCurrency] = useState('PNGWIN');
   const [submitting, setSubmitting] = useState(false);
+
+  // Change Sponsor modal
+  const [sponsorModal, setSponsorModal] = useState<{ userId: string; username: string; currentSponsor: string } | null>(null);
+  const [newSponsor, setNewSponsor] = useState('');
+  const [sponsorSubmitting, setSponsorSubmitting] = useState(false);
 
   const fetchUsers = () => {
     setLoading(true);
     Promise.all([
       supabase.from('project_members').select('*, users(*)').eq('project_slug', 'auction'),
-      supabase.from('wallets').select('user_id, balance').eq('project_slug', 'auction'),
+      supabase.from('wallets').select('user_id, balance, currency').eq('project_slug', 'auction'),
     ]).then(([membersRes, walletsRes]) => {
       const walletMap = new Map<string, number>();
-      (walletsRes.data ?? []).forEach((w: any) => walletMap.set(w.user_id, w.balance));
+      (walletsRes.data ?? []).forEach((w: any) => {
+        const cur = w.currency ?? 'PNGWIN';
+        if (cur === 'PNGWIN') walletMap.set(w.user_id, (walletMap.get(w.user_id) ?? 0) + Number(w.balance));
+      });
       const mapped = (membersRes.data ?? []).map((row: any) => ({
         ...row,
         walletBalance: walletMap.get(row.user_id) ?? 0,
@@ -42,11 +54,19 @@ const AdminUsers = () => {
   useEffect(() => { fetchUsers(); }, []);
 
   const loadUserDetail = async (userId: string) => {
-    const [ledgerRes, bidsRes, referralsRes] = await Promise.all([
+    const [ledgerRes, bidsRes, referralsRes, walletsRes] = await Promise.all([
       supabase.from('ledger_events').select('*').eq('user_id', userId).eq('source_project', 'auction').order('created_at', { ascending: false }).limit(200),
       supabase.from('auction_bids').select('*, auction_instances(auction_configs(name))').eq('user_id', userId).order('created_at', { ascending: false }).limit(200),
       supabase.from('users').select('id, username').eq('upline_1', userId),
+      supabase.from('wallets').select('balance, currency').eq('user_id', userId).eq('project_slug', 'auction'),
     ]);
+
+    const wMap: Record<string, number> = {};
+    (walletsRes.data ?? []).forEach((w: any) => {
+      wMap[w.currency ?? 'PNGWIN'] = Number(w.balance);
+    });
+    setUserWallets(wMap);
+
     setUserDetail({
       ledger: ledgerRes.data ?? [],
       bids: bidsRes.data ?? [],
@@ -71,12 +91,37 @@ const AdminUsers = () => {
       p_source_reference: 'admin_' + Date.now(),
       p_source_type: 'admin',
       p_source_id: null,
-      p_description: creditReason || `Admin ${creditDirection === 'IN' ? 'credit' : 'debit'}`,
-      p_metadata: {},
+      p_description: creditReason || `Admin ${creditDirection === 'IN' ? 'credit' : 'debit'} (${creditCurrency})`,
+      p_metadata: { currency: creditCurrency },
     });
     setSubmitting(false);
     if (error) { toast.error(error.message); }
-    else { toast.success(`${creditDirection === 'IN' ? 'Credit' : 'Debit'} applied!`); setCreditModal(null); setCreditAmount(''); setCreditReason(''); fetchUsers(); }
+    else {
+      toast.success(`${creditDirection === 'IN' ? 'Credit' : 'Debit'} applied (${creditCurrency})!`);
+      setCreditModal(null); setCreditAmount(''); setCreditReason(''); setCreditCurrency('PNGWIN');
+      fetchUsers();
+      if (selectedUser) loadUserDetail(selectedUser.user_id);
+    }
+  };
+
+  const handleChangeSponsor = async () => {
+    if (!sponsorModal || !newSponsor) return;
+    setSponsorSubmitting(true);
+    try {
+      const res = await supabase.functions.invoke('claude-admin-chat', {
+        body: {
+          message: `Change sponsor: move @${sponsorModal.username} to @${newSponsor}`,
+          history: [],
+        },
+      });
+      if (res.error) throw res.error;
+      toast.success(`Sponsor change requested for @${sponsorModal.username} → @${newSponsor}`);
+      setSponsorModal(null);
+      setNewSponsor('');
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to change sponsor');
+    }
+    setSponsorSubmitting(false);
   };
 
   const filtered = useMemo(() => {
@@ -99,10 +144,11 @@ const AdminUsers = () => {
   // ─── User Detail View ───
   if (selectedUser) {
     const u = selectedUser.users ?? {};
+    const sponsorUsername = u.upline_1 ? '...' : 'None';
 
     return (
       <div>
-        <button onClick={() => { setSelectedUser(null); setUserDetail(null); }}
+        <button onClick={() => { setSelectedUser(null); setUserDetail(null); setUserWallets({}); }}
           className="text-xs text-muted-foreground hover:text-foreground mb-4 flex items-center gap-1">
           ← Back to Users
         </button>
@@ -123,12 +169,11 @@ const AdminUsers = () => {
                 <span className="text-[10px] text-muted-foreground">Since {new Date(u.created_at).toLocaleDateString()}</span>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-[10px] text-muted-foreground">Wallet Balance</div>
-              <div className="font-mono text-xl font-bold text-primary">{(selectedUser.walletBalance ?? 0).toLocaleString()}</div>
-              <div className="text-[9px] text-muted-foreground">PNGWIN</div>
+            <div className="flex gap-2">
               <button onClick={() => setCreditModal({ userId: selectedUser.user_id, username: u.username ?? 'user' })}
-                className="text-xs text-ice hover:text-ice/80 mt-1">💰 Credit/Debit</button>
+                className="text-xs text-ice hover:text-ice/80 px-3 py-1.5 border border-ice/20 rounded-lg">💰 Credit/Debit</button>
+              <button onClick={() => setSponsorModal({ userId: selectedUser.user_id, username: u.username ?? 'user', currentSponsor: sponsorUsername })}
+                className="text-xs text-pngwin-orange hover:text-pngwin-orange/80 px-3 py-1.5 border border-pngwin-orange/20 rounded-lg">🔄 Change Sponsor</button>
             </div>
           </div>
           {u.referral_code && (
@@ -139,13 +184,33 @@ const AdminUsers = () => {
           )}
         </div>
 
+        {/* Multi-Currency Wallet Balances */}
+        <div className="bg-card border border-border rounded-xl p-4 mb-4">
+          <div className="text-xs text-muted-foreground uppercase tracking-wider mb-3">💰 Wallet Balances</div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+            {CURRENCIES.map(cur => {
+              const cfg = getCurrencyConfig(cur);
+              const bal = userWallets[cur] ?? 0;
+              return (
+                <div key={cur} className={`border rounded-lg p-3 ${cfg.borderColor} ${cfg.bgColor}`}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-sm">{cfg.icon}</span>
+                    <span className={`text-[10px] font-bold ${cfg.color}`}>{cur}</span>
+                  </div>
+                  <div className="font-mono text-lg font-bold">{formatCurrencyAmount(bal, cur)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Stats */}
         <UserStatsCards userId={selectedUser.user_id} userDetail={userDetail} />
 
         {/* Upline */}
         <UplineSection user={u} />
 
-        {/* Referral Summary (replaces badge dump) */}
+        {/* Referral Summary */}
         <ReferralSummary userId={selectedUser.user_id} totalReferrals={userDetail?.referrals?.length ?? 0} />
 
         {/* Transaction History */}
@@ -154,9 +219,96 @@ const AdminUsers = () => {
         {/* Bid History */}
         <BidHistory bids={userDetail?.bids ?? []} />
 
-        <CreditModal creditModal={creditModal} setCreditModal={setCreditModal} creditAmount={creditAmount} setCreditAmount={setCreditAmount}
-          creditDirection={creditDirection} setCreditDirection={setCreditDirection} creditReason={creditReason} setCreditReason={setCreditReason}
-          submitting={submitting} handleCredit={handleCredit} />
+        {/* Credit Modal - extended with currency */}
+        <AnimatePresence>
+          {creditModal && (
+            <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setCreditModal(null)}>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                className="bg-card border border-border-active rounded-2xl p-6 max-w-sm w-full" onClick={(e: any) => e.stopPropagation()}>
+                <h3 className="font-display font-bold text-lg mb-4">💰 Credit/Debit @{creditModal.username}</h3>
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <button onClick={() => setCreditDirection('IN')}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold border ${creditDirection === 'IN' ? 'bg-pngwin-green/20 text-pngwin-green border-pngwin-green/30' : 'border-border text-muted-foreground'}`}>
+                      ➕ Credit (IN)
+                    </button>
+                    <button onClick={() => setCreditDirection('OUT')}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold border ${creditDirection === 'OUT' ? 'bg-pngwin-red/20 text-pngwin-red border-pngwin-red/30' : 'border-border text-muted-foreground'}`}>
+                      ➖ Debit (OUT)
+                    </button>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Currency</label>
+                    <div className="flex gap-1 flex-wrap">
+                      {CURRENCIES.map(c => {
+                        const cfg = getCurrencyConfig(c);
+                        return (
+                          <button key={c} onClick={() => setCreditCurrency(c)}
+                            className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
+                              creditCurrency === c
+                                ? `${cfg.bgColor} ${cfg.color} ${cfg.borderColor}`
+                                : 'border-border text-muted-foreground'
+                            }`}>
+                            {cfg.icon} {c}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Amount</label>
+                    <input value={creditAmount} onChange={(e: any) => setCreditAmount(e.target.value)} type="number"
+                      className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:border-primary" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Reason</label>
+                    <input value={creditReason} onChange={(e: any) => setCreditReason(e.target.value)} placeholder="Admin adjustment"
+                      className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setCreditModal(null)} className="flex-1 py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg">Cancel</button>
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleCredit} disabled={submitting || !creditAmount}
+                      className="flex-1 py-2 gradient-gold text-primary-foreground font-display font-bold text-xs rounded-lg shadow-gold disabled:opacity-60">
+                      {submitting ? 'Processing...' : 'Confirm'}
+                    </motion.button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Change Sponsor Modal */}
+        <AnimatePresence>
+          {sponsorModal && (
+            <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setSponsorModal(null)}>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                className="bg-card border border-border-active rounded-2xl p-6 max-w-sm w-full" onClick={(e: any) => e.stopPropagation()}>
+                <h3 className="font-display font-bold text-lg mb-4">🔄 Change Sponsor</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Current Sponsor</label>
+                    <div className="px-3 py-2.5 bg-background border border-border rounded-lg text-sm text-muted-foreground">
+                      @{sponsorModal.currentSponsor}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">New Sponsor Username</label>
+                    <input value={newSponsor} onChange={(e: any) => setNewSponsor(e.target.value)} placeholder="Enter username..."
+                      className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setSponsorModal(null)} className="flex-1 py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg">Cancel</button>
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleChangeSponsor} disabled={sponsorSubmitting || !newSponsor}
+                      className="flex-1 py-2 gradient-gold text-primary-foreground font-display font-bold text-xs rounded-lg shadow-gold disabled:opacity-60">
+                      {sponsorSubmitting ? 'Processing...' : 'Confirm Change'}
+                    </motion.button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import type { Auction } from '@/data/mockData';
+import { getCurrencyConfig, formatCurrencyAmount } from '@/lib/currencies';
 
 const typeStyles: Record<string, { border: string; badge: string; badgeBg: string }> = {
   live_before_hot: { border: 'border-gold', badge: 'text-primary', badgeBg: 'bg-gold-subtle' },
@@ -22,6 +23,8 @@ const typeLabels: Record<string, string> = {
 
 const AuctionCard = ({ auction }: { auction: Auction }) => {
   const style = typeStyles[auction.type];
+  const currency = auction.currency ?? 'PNGWIN';
+  const cfg = getCurrencyConfig(currency);
 
   return (
     <Link to={`/auction/${auction.id}`}>
@@ -40,9 +43,16 @@ const AuctionCard = ({ auction }: { auction: Auction }) => {
             <span className="text-xl">{auction.icon}</span>
             <h3 className="font-display font-bold text-sm">{auction.title}</h3>
           </div>
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase ${style.badge} ${style.badgeBg} border ${style.border}`}>
-            {auction.status === 'hot_mode' ? '🔥 HOT MODE' : typeLabels[auction.type]}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {currency !== 'PNGWIN' && (
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${cfg.bgColor} ${cfg.color} border ${cfg.borderColor}`}>
+                {cfg.icon} {currency}
+              </span>
+            )}
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase ${style.badge} ${style.badgeBg} border ${style.border}`}>
+              {auction.status === 'hot_mode' ? '🔥 HOT MODE' : typeLabels[auction.type]}
+            </span>
+          </div>
         </div>
 
         {/* Resolution method badge */}
@@ -60,9 +70,9 @@ const AuctionCard = ({ auction }: { auction: Auction }) => {
         {/* Prize pool */}
         <div className="mb-3">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prize Pool</div>
-          <div className="font-mono text-2xl font-bold text-primary">
-            {auction.prizePool.toLocaleString()}
-            <span className="text-xs text-muted-foreground ml-1">PNGWIN</span>
+          <div className={`font-mono text-2xl font-bold ${currency !== 'PNGWIN' ? cfg.color : 'text-primary'}`}>
+            {cfg.icon} {formatCurrencyAmount(auction.prizePool, currency)}
+            <span className="text-xs text-muted-foreground ml-1">{currency}</span>
           </div>
         </div>
 
@@ -158,8 +168,8 @@ const AuctionCard = ({ auction }: { auction: Auction }) => {
         {/* Bid cost */}
         <div className="mt-3 pt-3 border-t border-border flex justify-between items-center text-xs">
           <span className="text-muted-foreground">Bid Cost</span>
-          <span className="font-mono font-bold text-primary">
-            {auction.bidCost === 0 ? 'FREE' : `${auction.bidCost} PNGWIN`}
+          <span className={`font-mono font-bold ${currency !== 'PNGWIN' ? cfg.color : 'text-primary'}`}>
+            {auction.bidCost === 0 ? 'FREE' : `${cfg.icon} ${formatCurrencyAmount(auction.bidCost, currency)} ${currency}`}
           </span>
         </div>
       </motion.div>

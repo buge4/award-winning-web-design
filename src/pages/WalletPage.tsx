@@ -3,13 +3,20 @@ import { motion } from 'framer-motion';
 import KpiCard from '@/components/KpiCard';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { CURRENCIES, getCurrencyConfig, formatCurrencyAmount } from '@/lib/currencies';
 
 interface LedgerEvent {
   id: string;
   event_type: string;
   description: string;
   amount: number;
+  currency: string;
   created_at: string;
+}
+
+interface WalletBalance {
+  currency: string;
+  balance: number;
 }
 
 const typeStyles: Record<string, { icon: string; color: string }> = {
@@ -40,7 +47,7 @@ const formatDate = (iso: string) => {
 
 const WalletPage = () => {
   const { user } = useAuth();
-  const [balance, setBalance] = useState<number | null>(null);
+  const [wallets, setWallets] = useState<WalletBalance[]>([]);
   const [transactions, setTransactions] = useState<LedgerEvent[]>([]);
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [loadingTx, setLoadingTx] = useState(true);
@@ -48,19 +55,27 @@ const WalletPage = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Fetch wallet balance
+    // Fetch all wallet balances
     supabase
       .from('wallets')
-      .select('balance')
+      .select('balance, currency')
       .eq('user_id', user.id)
       .eq('project_slug', 'auction')
-      .single()
       .then(({ data }) => {
-        if (data) setBalance(data.balance);
+        const balanceMap: Record<string, number> = {};
+        (data ?? []).forEach((w: any) => {
+          balanceMap[w.currency ?? 'PNGWIN'] = Number(w.balance);
+        });
+        // Ensure all currencies are shown
+        const allWallets: WalletBalance[] = CURRENCIES.map(c => ({
+          currency: c,
+          balance: balanceMap[c] ?? 0,
+        }));
+        setWallets(allWallets);
         setLoadingBalance(false);
       });
 
-    // Fetch transaction history from ledger_events
+    // Fetch transaction history
     supabase
       .from('ledger_events')
       .select('*')
@@ -69,10 +84,12 @@ const WalletPage = () => {
       .order('created_at', { ascending: false })
       .limit(50)
       .then(({ data }) => {
-        if (data) setTransactions(data as LedgerEvent[]);
+        if (data) setTransactions(data.map((d: any) => ({ ...d, currency: d.currency ?? 'PNGWIN' })) as LedgerEvent[]);
         setLoadingTx(false);
       });
   }, [user]);
+
+  const primaryBalance = wallets.find(w => w.currency === 'PNGWIN')?.balance ?? 0;
 
   const totalDeposited = transactions
     .filter(t => t.event_type === 'deposit')
@@ -83,21 +100,52 @@ const WalletPage = () => {
   const totalSpent = transactions
     .filter(t => ['bid', 'bid_placed'].includes(t.event_type))
     .reduce((s, t) => s + Math.abs(t.amount), 0);
-  const netPL = (balance ?? 0) - totalSpent;
+  const netPL = primaryBalance - totalSpent;
 
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0">
       <div className="container py-8">
         <h1 className="font-display text-3xl font-bold mb-6">💎 Wallet</h1>
 
-        {/* Balance Card */}
-        <div className="bg-card border border-gold/20 rounded-xl p-8 text-center mb-8 glow-gold">
-          <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Available Balance</div>
-          <div className="font-mono text-5xl md:text-6xl font-bold text-primary mb-2">
-            {loadingBalance ? '—' : (balance ?? 0).toLocaleString()}
+        {/* Multi-Currency Wallets */}
+        <div className="bg-card border border-gold/20 rounded-xl p-6 mb-8 glow-gold">
+          <div className="text-xs text-muted-foreground uppercase tracking-wider mb-4">💰 My Wallets</div>
+
+          <div className="space-y-3">
+            {loadingBalance ? (
+              <div className="text-center text-muted-foreground py-4">Loading...</div>
+            ) : (
+              wallets.map(w => {
+                const cfg = getCurrencyConfig(w.currency);
+                const isPrimary = w.currency === 'PNGWIN';
+                return (
+                  <motion.div
+                    key={w.currency}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${
+                      isPrimary
+                        ? 'bg-primary/5 border-gold/30'
+                        : 'bg-secondary/30 border-border hover:border-border-active'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{cfg.icon}</span>
+                      <div>
+                        <div className={`font-display font-bold text-sm ${cfg.color}`}>{w.currency}</div>
+                        {isPrimary && <div className="text-[10px] text-muted-foreground">Primary</div>}
+                      </div>
+                    </div>
+                    <div className={`font-mono text-xl font-bold ${isPrimary ? 'text-primary' : 'text-foreground'}`}>
+                      {formatCurrencyAmount(w.balance, w.currency)}
+                    </div>
+                  </motion.div>
+                );
+              })
+            )}
           </div>
-          <div className="text-sm text-muted-foreground mb-6">PNGWIN</div>
-          <div className="flex gap-3 justify-center">
+
+          <div className="flex gap-3 justify-center mt-6">
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
@@ -137,6 +185,7 @@ const WalletPage = () => {
           )}
           {transactions.map(tx => {
             const style = getStyle(tx.event_type);
+            const cfg = getCurrencyConfig(tx.currency);
             return (
               <div key={tx.id} className="px-5 py-3.5 flex items-center justify-between border-b border-border/50 last:border-0 hover:bg-card-hover transition-colors">
                 <div className="flex items-center gap-3">
@@ -146,8 +195,11 @@ const WalletPage = () => {
                     <div className="text-[11px] text-muted-foreground">{formatDate(tx.created_at)}</div>
                   </div>
                 </div>
-                <div className={`font-mono text-sm font-bold ${tx.amount >= 0 ? 'text-pngwin-green' : 'text-pngwin-red'}`}>
-                  {tx.amount >= 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                <div className="text-right">
+                  <div className={`font-mono text-sm font-bold ${tx.amount >= 0 ? 'text-pngwin-green' : 'text-pngwin-red'}`}>
+                    {tx.amount >= 0 ? '+' : ''}{formatCurrencyAmount(Math.abs(tx.amount), tx.currency)}
+                  </div>
+                  <div className={`text-[10px] font-semibold ${cfg.color}`}>{cfg.icon} {tx.currency}</div>
                 </div>
               </div>
             );
