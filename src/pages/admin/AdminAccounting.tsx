@@ -3,14 +3,10 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import KpiCard from '@/components/KpiCard';
-import {
-  Table, TableHeader, TableBody, TableRow, TableHead, TableCell
-} from '@/components/ui/table';
-import {
-  Pagination, PaginationContent, PaginationItem, PaginationLink,
-  PaginationNext, PaginationPrevious
-} from '@/components/ui/pagination';
+import StatCard from '@/components/admin/StatCard';
+import AuctionBreakdownCard from '@/components/admin/AuctionBreakdownCard';
+import TransactionBadge from '@/components/admin/TransactionBadge';
+import BurnCard from '@/components/admin/BurnCard';
 import {
   Collapsible, CollapsibleTrigger, CollapsibleContent
 } from '@/components/ui/collapsible';
@@ -49,9 +45,6 @@ interface LedgerRow {
   allocations: { recipient_type: string; amount: number }[];
 }
 
-type SortKey = keyof AuctionRow;
-type SortDir = 'asc' | 'desc';
-
 /* ───── component ───── */
 const AdminAccounting = () => {
   const navigate = useNavigate();
@@ -63,24 +56,33 @@ const AdminAccounting = () => {
   });
   const [statsLoading, setStatsLoading] = useState(true);
 
-  /* --- Section 2: Per-auction table --- */
+  /* --- Section 2: Per-auction cards --- */
   const [auctions, setAuctions] = useState<AuctionRow[]>([]);
   const [auctionsLoading, setAuctionsLoading] = useState(true);
-  const [sortKey, setSortKey] = useState<SortKey>('collected');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [auctionFilter, setAuctionFilter] = useState<'all' | 'accumulating' | 'resolved' | 'closed'>('all');
 
   /* --- Section 3: Ledger transactions --- */
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(true);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerTotal, setLedgerTotal] = useState(0);
-  const [ledgerFilter, setLedgerFilter] = useState({ type: '', user: '', auction: '' });
+  const [ledgerFilter, setLedgerFilter] = useState({ type: '', user: '' });
   const LEDGER_PAGE_SIZE = 50;
 
   /* --- Section 4: Burn tracker --- */
   const [burnTotals, setBurnTotals] = useState({ PNGWIN: 0, TON: 0, SOL: 0 });
   const [burnChart, setBurnChart] = useState<{ day: string; cumulative: number }[]>([]);
   const [burnLoading, setBurnLoading] = useState(true);
+
+  /* --- Expandable ledger rows --- */
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const toggleRow = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     loadStats();
@@ -105,7 +107,7 @@ const AdminAccounting = () => {
     const byType = (t: string) => allocs.filter((a: any) => a.recipient_type === t).reduce((s, a: any) => s + Number(a.amount), 0);
     const prizes = byType('winner') + byType('rollover');
     const burned = byType('burn');
-    const social = ['social_L1','social_L2','social_L3','social_L4','social_L5'].reduce((s, t) => s + byType(t), 0);
+    const social = ['social_L1', 'social_L2', 'social_L3', 'social_L4', 'social_L5'].reduce((s, t) => s + byType(t), 0);
     const platform = byType('platform');
     const jackpot = (jpRes.data ?? []).reduce((s, j: any) => s + Number(j.current_balance), 0);
 
@@ -126,7 +128,6 @@ const AdminAccounting = () => {
 
     if (!instances) { setAuctionsLoading(false); return; }
 
-    // Get allocations per instance
     const ids = instances.map((i: any) => i.id);
     const { data: allocs } = await supabase
       .from('ledger_allocations')
@@ -141,7 +142,7 @@ const AdminAccounting = () => {
 
     const rows: AuctionRow[] = instances.map((i: any) => {
       const a = allocMap[i.id] ?? {};
-      const socialTotal = ['social_L1','social_L2','social_L3','social_L4','social_L5'].reduce((s, t) => s + (a[t] ?? 0), 0);
+      const socialTotal = ['social_L1', 'social_L2', 'social_L3', 'social_L4', 'social_L5'].reduce((s, t) => s + (a[t] ?? 0), 0);
       return {
         instance_id: i.id,
         name: i.auction_configs?.name ?? 'Unknown',
@@ -180,7 +181,6 @@ const AdminAccounting = () => {
 
     if (!data) { setLedgerLoading(false); return; }
 
-    // Get allocations for these events
     const eventIds = data.map((e: any) => e.id);
     const { data: allocs } = await supabase
       .from('ledger_allocations')
@@ -237,225 +237,255 @@ const AdminAccounting = () => {
     setBurnLoading(false);
   };
 
-  /* ─── sorted auctions ─── */
-  const sortedAuctions = useMemo(() => {
-    return [...auctions].sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
-      if (typeof av === 'number' && typeof bv === 'number') return sortDir === 'asc' ? av - bv : bv - av;
-      return sortDir === 'asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
-    });
-  }, [auctions, sortKey, sortDir]);
-
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKey(key); setSortDir('desc'); }
-  };
-
-  const sortIcon = (key: SortKey) => sortKey === key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '';
-
-  const statusBadge = (s: string) => {
-    const colors: Record<string, string> = {
-      accumulating: 'bg-gold-subtle text-primary border-gold',
-      hot_mode: 'bg-red-subtle text-pngwin-red border-pngwin-red/20',
-      resolved: 'bg-green-subtle text-pngwin-green border-pngwin-green/20',
-      closed: 'bg-purple-subtle text-pngwin-purple border-pngwin-purple/20',
-      cancelled: 'text-muted-foreground bg-secondary border-transparent',
-    };
-    return `px-2 py-0.5 rounded text-[10px] font-medium border ${colors[s] ?? 'text-muted-foreground bg-secondary border-transparent'}`;
-  };
+  const filteredAuctions = useMemo(() => {
+    if (auctionFilter === 'all') return auctions;
+    return auctions.filter(a => a.status === auctionFilter);
+  }, [auctions, auctionFilter]);
 
   const ledgerPages = Math.ceil(ledgerTotal / LEDGER_PAGE_SIZE);
-
   const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+  const maxBurn = Math.max(...Object.values(burnTotals), 1);
+
+  const allocColor: Record<string, string> = {
+    winner: 'text-pngwin-green',
+    rollover: 'text-pngwin-green',
+    burn: 'text-pngwin-red',
+    platform: 'text-foreground',
+    jackpot: 'text-primary',
+    social_L1: 'text-ice',
+    social_L2: 'text-ice',
+    social_L3: 'text-ice',
+    social_L4: 'text-ice',
+    social_L5: 'text-ice',
+  };
 
   return (
     <div className="space-y-8">
-      <h1 className="font-display text-2xl font-bold">📊 Accounting</h1>
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold">
+            Admin <span className="text-primary">Accounting</span>
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">Financial overview · Live Supabase data</p>
+        </div>
+        <button
+          onClick={() => { loadStats(); loadAuctions(); loadLedger(); loadBurns(); }}
+          className="px-4 py-2 text-xs font-medium bg-card border border-border rounded-lg hover:border-border-active transition-colors"
+        >
+          🔄 Refresh
+        </button>
+      </div>
 
       {/* ─── SECTION 1: GLOBAL STATS ─── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {statsLoading ? (
-          Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
+          Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-[14px]" />)
         ) : (
           <>
-            <KpiCard label="Total Revenue" value={`${fmt(stats.totalRevenue)}`} color="gold" />
-            <KpiCard label="Prizes Paid" value={`${fmt(stats.totalPrizes)}`} color="green" delay={0.05} />
-            <KpiCard label="Total Burned 🔥" value={`${fmt(stats.totalBurned)}`} color="red" delay={0.1} />
-            <KpiCard label="Jackpot Balance" value={`${fmt(stats.jackpotBalance)}`} color="purple" delay={0.15} />
-            <KpiCard label="Platform Profit" value={`${fmt(stats.platformProfit)}`} color="ice" delay={0.2} />
-            <KpiCard label="Total Users" value={stats.totalUsers} color="gold" delay={0.25} />
+            <StatCard label="Total Revenue" value={fmt(stats.totalRevenue)} color="green" icon="💰" />
+            <StatCard label="Tokens Burned" value={fmt(stats.totalBurned)} color="red" icon="🔥" delay={0.05} />
+            <StatCard label="Jackpot Balance" value={fmt(stats.jackpotBalance)} color="gold" icon="🎰" delay={0.1} />
+            <StatCard label="Active Users" value={stats.totalUsers} color="cyan" icon="👥" delay={0.15} />
+            <StatCard label="Prizes Paid" value={fmt(stats.totalPrizes)} color="purple" icon="🏆" delay={0.2} />
+            <StatCard label="Platform Profit" value={fmt(stats.platformProfit)} color="blue" icon="📊" delay={0.25} />
           </>
         )}
       </div>
 
-      {/* ─── SECTION 2: PER-AUCTION TABLE ─── */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-display font-bold text-sm mb-4">📋 Per-Auction Breakdown</h2>
+      {/* ─── SECTION 2: AUCTION CARDS ─── */}
+      <div>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-primary" />
+            <h2 className="font-display font-bold text-lg">Live Auction Analytics</h2>
+          </div>
+          <div className="flex gap-1">
+            {(['all', 'accumulating', 'resolved', 'closed'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setAuctionFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all border ${
+                  auctionFilter === f
+                    ? 'bg-primary/10 border-gold text-primary'
+                    : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {auctionsLoading ? (
-          <Skeleton className="h-64 w-full rounded-lg" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-56 rounded-[14px]" />)}
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {([
-                    ['name', 'Auction'],
-                    ['auction_type', 'Type'],
-                    ['status', 'Status'],
-                    ['bids', 'Bids'],
-                    ['users', 'Users'],
-                    ['collected', 'Collected'],
-                    ['prize_pool', 'Prize Pool'],
-                    ['burned', 'Burned'],
-                    ['jackpot_feed', 'Jackpot'],
-                    ['social_pool', 'Social'],
-                  ] as [SortKey, string][]).map(([key, label]) => (
-                    <TableHead key={key}
-                      className="cursor-pointer hover:text-foreground text-xs whitespace-nowrap"
-                      onClick={() => handleSort(key)}
-                    >
-                      {label}{sortIcon(key)}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedAuctions.map(row => (
-                  <TableRow key={row.instance_id}
-                    className="cursor-pointer hover:bg-secondary/50"
-                    onClick={() => navigate(`/admin/auctions/${row.instance_id}`)}
-                  >
-                    <TableCell className="font-medium text-xs max-w-[160px] truncate">{row.name}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{row.auction_type}</TableCell>
-                    <TableCell><span className={statusBadge(row.status)}>{row.status}</span></TableCell>
-                    <TableCell className="font-mono text-xs">{row.bids}</TableCell>
-                    <TableCell className="font-mono text-xs">{row.users}</TableCell>
-                    <TableCell className="font-mono text-xs text-primary">{fmt(row.collected)}</TableCell>
-                    <TableCell className="font-mono text-xs text-pngwin-green">{fmt(row.prize_pool)}</TableCell>
-                    <TableCell className="font-mono text-xs text-pngwin-red">{fmt(row.burned)}</TableCell>
-                    <TableCell className="font-mono text-xs text-pngwin-orange">{fmt(row.jackpot_feed)}</TableCell>
-                    <TableCell className="font-mono text-xs text-pngwin-purple">{fmt(row.social_pool)}</TableCell>
-                  </TableRow>
-                ))}
-                {sortedAuctions.length === 0 && (
-                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground text-sm py-8">No auctions</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredAuctions.map((row, i) => (
+              <AuctionBreakdownCard
+                key={row.instance_id}
+                name={row.name}
+                auctionType={row.auction_type}
+                status={row.status}
+                bids={row.bids}
+                users={row.users}
+                collected={row.collected}
+                prizePool={row.prize_pool}
+                burned={row.burned}
+                jackpotFeed={row.jackpot_feed}
+                socialPool={row.social_pool}
+                onClick={() => navigate(`/admin/auctions/${row.instance_id}`)}
+                delay={Math.min(i * 0.04, 0.3)}
+              />
+            ))}
+            {filteredAuctions.length === 0 && (
+              <div className="col-span-full text-center text-muted-foreground text-sm py-12">No auctions found</div>
+            )}
           </div>
         )}
       </div>
 
-      {/* ─── SECTION 3: LEDGER TRANSACTIONS ─── */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-display font-bold text-sm mb-4">📒 Ledger Transactions</h2>
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3 mb-4">
-          <Select value={ledgerFilter.type || 'all'} onValueChange={v => { setLedgerFilter(f => ({ ...f, type: v === 'all' ? '' : v })); setLedgerPage(1); }}>
-            <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Event Type" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {['BID_FEE', 'AUCTION_BID', 'AUCTION_WIN', 'CREDIT', 'SIGNUP_BONUS', 'SOCIAL_BONUS'].map(t => (
-                <SelectItem key={t} value={t}>{t}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input placeholder="Filter by username..." value={ledgerFilter.user}
-            onChange={e => { setLedgerFilter(f => ({ ...f, user: e.target.value })); setLedgerPage(1); }}
-            className="w-[180px] h-8 text-xs" />
+      {/* ─── SECTION 3: TRANSACTION LEDGER ─── */}
+      <div className="bg-card border border-border rounded-[14px] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-pngwin-purple" />
+            <h2 className="font-display font-bold text-base">Transaction Ledger</h2>
+          </div>
+          <div className="flex gap-2">
+            <Select value={ledgerFilter.type || 'all'} onValueChange={v => { setLedgerFilter(f => ({ ...f, type: v === 'all' ? '' : v })); setLedgerPage(1); }}>
+              <SelectTrigger className="w-[140px] h-8 text-[11px] bg-background border-border">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {['BID_FEE', 'AUCTION_BID', 'AUCTION_WIN', 'CREDIT', 'SIGNUP_BONUS', 'SOCIAL_BONUS'].map(t => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Search user..."
+              value={ledgerFilter.user}
+              onChange={e => { setLedgerFilter(f => ({ ...f, user: e.target.value })); setLedgerPage(1); }}
+              className="w-[150px] h-8 text-[11px] bg-background"
+            />
+          </div>
         </div>
 
         {ledgerLoading ? (
-          <Skeleton className="h-64 w-full rounded-lg" />
+          <div className="p-5"><Skeleton className="h-64 w-full rounded-lg" /></div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Date</TableHead>
-                    <TableHead className="text-xs">Type</TableHead>
-                    <TableHead className="text-xs">User</TableHead>
-                    <TableHead className="text-xs">Amount</TableHead>
-                    <TableHead className="text-xs">Dir</TableHead>
-                    <TableHead className="text-xs">Description</TableHead>
-                    <TableHead className="text-xs w-8"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ledger.map(row => (
-                    <Collapsible key={row.id} asChild>
-                      <>
-                        <TableRow className="hover:bg-secondary/50">
-                          <TableCell className="text-[11px] text-muted-foreground whitespace-nowrap">
-                            {new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{' '}
-                            {new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </TableCell>
-                          <TableCell className="text-xs font-medium">{row.event_type}</TableCell>
-                          <TableCell className="text-xs text-ice">{row.username ? `@${row.username}` : '—'}</TableCell>
-                          <TableCell className={`font-mono text-xs font-bold ${row.direction === 'IN' ? 'text-pngwin-green' : 'text-pngwin-red'}`}>
-                            {row.direction === 'IN' ? '+' : '-'}{fmt(row.gross_amount)}
-                          </TableCell>
-                          <TableCell className="text-[10px] text-muted-foreground">{row.direction}</TableCell>
-                          <TableCell className="text-[11px] text-muted-foreground max-w-[200px] truncate">{row.description}</TableCell>
-                          <TableCell>
-                            {row.allocations.length > 0 && (
-                              <CollapsibleTrigger className="text-muted-foreground hover:text-foreground text-xs">▼</CollapsibleTrigger>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                        {row.allocations.length > 0 && (
-                          <CollapsibleContent asChild>
-                            <tr>
-                              <td colSpan={7} className="px-6 py-2 bg-secondary/30">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                  {row.allocations.map((a, i) => (
-                                    <div key={i} className="flex items-center gap-2 text-[11px]">
-                                      <span className="text-muted-foreground">{a.recipient_type}:</span>
-                                      <span className="font-mono font-bold">{fmt(a.amount)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </td>
-                            </tr>
-                          </CollapsibleContent>
-                        )}
-                      </>
-                    </Collapsible>
-                  ))}
-                  {ledger.length === 0 && (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground text-sm py-8">No transactions</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
+            {/* Header row */}
+            <div className="grid grid-cols-[140px_70px_1fr_100px_80px_100px_32px] items-center px-5 py-2.5 text-[11px] text-muted-foreground uppercase tracking-wider border-b border-border/50">
+              <div>Timestamp</div>
+              <div>Type</div>
+              <div>User</div>
+              <div>Auction</div>
+              <div className="text-right">Amount</div>
+              <div className="text-right">Balance</div>
+              <div />
             </div>
+
+            {/* Rows */}
+            {ledger.map(row => (
+              <div key={row.id}>
+                <div
+                  className="grid grid-cols-[140px_70px_1fr_100px_80px_100px_32px] items-center px-5 py-3 text-[13px] border-b border-border/30 hover:bg-secondary/30 cursor-pointer transition-colors"
+                  onClick={() => row.allocations.length > 0 && toggleRow(row.id)}
+                >
+                  <div className="font-mono text-[12px] text-muted-foreground">
+                    {new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{' '}
+                    {new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div><TransactionBadge type={row.event_type} /></div>
+                  <div className="font-medium truncate">{row.username ? `@${row.username}` : '—'}</div>
+                  <div className="text-xs text-muted-foreground truncate">{row.instance_id ? row.instance_id.slice(0, 8) : '—'}</div>
+                  <div className={`font-mono text-xs font-bold text-right ${row.direction === 'IN' ? 'text-pngwin-green' : 'text-pngwin-red'}`}>
+                    {row.direction === 'IN' ? '+' : '-'}{fmt(row.gross_amount)}
+                  </div>
+                  <div className="font-mono text-xs text-muted-foreground text-right">—</div>
+                  <div className="text-center text-muted-foreground">
+                    {row.allocations.length > 0 && (
+                      <span className={`text-xs transition-transform inline-block ${expandedRows.has(row.id) ? 'rotate-180' : ''}`}>▼</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Expanded detail */}
+                {expandedRows.has(row.id) && row.allocations.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="bg-background/50 px-5 py-3 border-b border-border/30"
+                  >
+                    <div className="pl-10 space-y-1.5">
+                      {row.allocations.map((a, i) => (
+                        <div key={i} className="flex items-center justify-between text-[12px]">
+                          <span className="text-muted-foreground">
+                            → {a.recipient_type === 'burn' ? `Burned 🔥` : a.recipient_type}
+                          </span>
+                          <span className={`font-mono font-semibold ${allocColor[a.recipient_type] ?? 'text-foreground'}`}>
+                            {a.recipient_type === 'winner' || a.recipient_type.startsWith('social') ? '+' : ''}{fmt(a.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            ))}
+
+            {ledger.length === 0 && (
+              <div className="text-center text-muted-foreground text-sm py-12">No transactions</div>
+            )}
 
             {/* Pagination */}
             {ledgerPages > 1 && (
-              <div className="mt-4">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious onClick={() => setLedgerPage(p => Math.max(1, p - 1))} className={ledgerPage <= 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'} />
-                    </PaginationItem>
-                    {Array.from({ length: Math.min(5, ledgerPages) }, (_, i) => {
-                      const start = Math.max(1, Math.min(ledgerPage - 2, ledgerPages - 4));
-                      const page = start + i;
-                      if (page > ledgerPages) return null;
-                      return (
-                        <PaginationItem key={page}>
-                          <PaginationLink isActive={page === ledgerPage} onClick={() => setLedgerPage(page)} className="cursor-pointer">{page}</PaginationLink>
-                        </PaginationItem>
-                      );
-                    })}
-                    <PaginationItem>
-                      <PaginationNext onClick={() => setLedgerPage(p => Math.min(ledgerPages, p + 1))} className={ledgerPage >= ledgerPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'} />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-                <div className="text-center text-[10px] text-muted-foreground mt-1">{ledgerTotal} total transactions</div>
+              <div className="flex items-center justify-between px-5 py-4 border-t border-border">
+                <div className="text-[12px] text-muted-foreground">
+                  Showing {((ledgerPage - 1) * LEDGER_PAGE_SIZE) + 1}–{Math.min(ledgerPage * LEDGER_PAGE_SIZE, ledgerTotal)} of {ledgerTotal.toLocaleString()}
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setLedgerPage(p => Math.max(1, p - 1))}
+                    disabled={ledgerPage <= 1}
+                    className="w-8 h-8 rounded-lg text-xs font-semibold bg-secondary border border-border text-muted-foreground disabled:opacity-30 hover:text-foreground transition-colors"
+                  >
+                    ‹
+                  </button>
+                  {Array.from({ length: Math.min(5, ledgerPages) }, (_, i) => {
+                    const start = Math.max(1, Math.min(ledgerPage - 2, ledgerPages - 4));
+                    const page = start + i;
+                    if (page > ledgerPages) return null;
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setLedgerPage(page)}
+                        className={`w-8 h-8 rounded-lg text-xs font-semibold border transition-colors ${
+                          page === ledgerPage
+                            ? 'bg-primary/10 border-gold text-primary'
+                            : 'bg-secondary border-border text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => setLedgerPage(p => Math.min(ledgerPages, p + 1))}
+                    disabled={ledgerPage >= ledgerPages}
+                    className="w-8 h-8 rounded-lg text-xs font-semibold bg-secondary border border-border text-muted-foreground disabled:opacity-30 hover:text-foreground transition-colors"
+                  >
+                    ›
+                  </button>
+                </div>
               </div>
             )}
           </>
@@ -463,37 +493,64 @@ const AdminAccounting = () => {
       </div>
 
       {/* ─── SECTION 4: BURN TRACKER ─── */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-display font-bold text-sm mb-4">🔥 Burn Tracker</h2>
+      <div>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-2 h-2 rounded-full bg-pngwin-red" />
+          <h2 className="font-display font-bold text-lg">🔥 Token Burn Tracker</h2>
+        </div>
 
         {burnLoading ? (
-          <Skeleton className="h-48 w-full rounded-lg" />
+          <Skeleton className="h-48 w-full rounded-[14px]" />
         ) : (
           <>
-            {/* Totals */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              {Object.entries(burnTotals).map(([token, amount]) => (
-                <div key={token} className="bg-background rounded-lg p-4 text-center">
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{token}</div>
-                  <div className="font-mono text-xl font-bold text-pngwin-red">{fmt(amount)}</div>
-                </div>
-              ))}
+            {/* Burn cards */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              {Object.entries(burnTotals).map(([token, amount], i) => {
+                const icons: Record<string, string> = { PNGWIN: '🐧', TON: '💎', SOL: '◎' };
+                return (
+                  <BurnCard
+                    key={token}
+                    token={token}
+                    icon={icons[token] ?? '🪙'}
+                    amount={amount}
+                    maxAmount={maxBurn}
+                    delay={i * 0.08}
+                  />
+                );
+              })}
             </div>
 
             {/* Cumulative burn chart */}
-            {burnChart.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={burnChart}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsla(215, 25%, 17%, 0.5)" />
-                  <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'hsl(215, 20%, 55%)' }} />
-                  <YAxis tick={{ fontSize: 10, fill: 'hsl(215, 20%, 55%)' }} />
-                  <Tooltip contentStyle={{ background: 'hsl(220, 40%, 8%)', border: '1px solid hsl(215, 25%, 17%)', borderRadius: '8px', fontSize: 12 }} />
-                  <Line type="monotone" dataKey="cumulative" stroke="hsl(350, 100%, 63%)" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">No burn data yet</div>
-            )}
+            <div className="bg-card border border-border rounded-[14px] p-6">
+              <div className="text-sm font-semibold mb-4">Cumulative Burns Over Time</div>
+              {burnChart.length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={burnChart}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsla(215, 25%, 17%, 0.5)" />
+                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'hsl(215, 20%, 55%)' }} />
+                    <YAxis tick={{ fontSize: 10, fill: 'hsl(215, 20%, 55%)' }} />
+                    <Tooltip
+                      contentStyle={{
+                        background: 'hsl(220, 40%, 8%)',
+                        border: '1px solid hsl(215, 25%, 17%)',
+                        borderRadius: '10px',
+                        fontSize: 12,
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="cumulative"
+                      stroke="hsl(350, 100%, 63%)"
+                      strokeWidth={2}
+                      dot={false}
+                      fill="hsla(350, 100%, 63%, 0.06)"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">No burn data yet</div>
+              )}
+            </div>
           </>
         )}
       </div>
