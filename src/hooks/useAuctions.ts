@@ -47,6 +47,7 @@ const mapRow = (row: Record<string, unknown>): Auction => {
 
   return {
     id: String(row.id),
+    configId: String(config.id ?? row.config_id ?? ''),
     title: String(config.name ?? row.title ?? 'Auction'),
     type,
     status,

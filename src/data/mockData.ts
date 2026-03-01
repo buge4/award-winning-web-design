@@ -3,6 +3,7 @@ export type AuctionStatus = 'accumulating' | 'hot_mode' | 'grace_period' | 'clos
 
 export interface Auction {
   id: string;
+  configId?: string;
   title: string;
   type: AuctionType;
   status: AuctionStatus;

@@ -6,6 +6,10 @@ import BidInput from '@/components/BidInput';
 import KpiCard from '@/components/KpiCard';
 import SocialCircleWidget from '@/components/SocialCircleWidget';
 import AuctionResults from '@/components/auction/AuctionResults';
+import InstanceNavigation from '@/components/auction/InstanceNavigation';
+import PastAuctionHistory from '@/components/auction/PastAuctionHistory';
+import WinnerBanner from '@/components/auction/WinnerBanner';
+import PrizeBreakdown from '@/components/auction/PrizeBreakdown';
 import { toast } from 'sonner';
 import { useMyBids, usePlaceBid, useAuctionDetail, useAuctionLeaderboard } from '@/hooks/useAuctions';
 import { useAuctionResults } from '@/hooks/useAuctionResults';
@@ -44,7 +48,6 @@ const AuctionDetail = () => {
   const auction = dbAuction ?? AUCTIONS.find((a) => a.id === id) ?? AUCTIONS[0];
   const { bids, refetch: refetchBids } = useMyBids(id);
   const { placeBid } = usePlaceBid();
-  // Only fetch leaderboard if visibility is 'open' OR auction is resolved
   const isBlindConfig = auction?.visibility === 'blind';
   const isResolved = auction?.status === 'resolved' || auction?.status === 'closed';
   const shouldShowLeaderboard = !isBlindConfig || isResolved;
@@ -52,6 +55,10 @@ const AuctionDetail = () => {
   const { data: resultsData } = useAuctionResults(isResolved ? id : undefined);
   const [countdown, setCountdown] = useState<string | null>(null);
   const [showWinnerReveal, setShowWinnerReveal] = useState(false);
+
+  // Extract configId for navigation
+  const configId = (dbAuction as any)?.configId ?? '';
+  const configName = auction?.title ?? 'Auction';
 
   useEffect(() => {
     if (!auction.hotModeEndsAt && !auction.timeRemaining) return;
@@ -70,7 +77,6 @@ const AuctionDetail = () => {
     return () => clearInterval(interval);
   }, [auction.hotModeEndsAt, auction.timeRemaining]);
 
-  // Trigger winner reveal when status changes to resolved
   useEffect(() => {
     if (auction.status === 'resolved') {
       setShowWinnerReveal(true);
@@ -134,7 +140,6 @@ const AuctionDetail = () => {
               transition={{ type: 'spring', damping: 15 }}
               className="text-center p-10 max-w-lg w-full"
             >
-              {/* RNG Exact / Jackpot Draw — lottery style number reveal */}
               {auction.resolutionMethod === 'rng_exact' && auction.drawnNumbers && auction.drawnNumbers.length > 0 ? (
                 <>
                   <div className="text-xs text-muted-foreground uppercase tracking-[4px] mb-4">🎰 Jackpot Draw</div>
@@ -167,7 +172,6 @@ const AuctionDetail = () => {
                   )}
                 </>
               ) : auction.resolutionMethod === 'rng_closest' && auction.drawnNumbers && auction.drawnNumbers.length > 0 ? (
-                /* RNG Closest — show drawn number + distance */
                 <>
                   <div className="text-xs text-muted-foreground uppercase tracking-[4px] mb-4">🎯 RNG Draw</div>
                   <motion.div
@@ -191,7 +195,6 @@ const AuctionDetail = () => {
                   )}
                 </>
               ) : (
-                /* Default: Highest Unique Bid reveal */
                 <>
                   <motion.div animate={{ rotate: [0, -10, 10, -10, 10, 0] }} transition={{ duration: 0.6, delay: 0.3 }} className="text-7xl mb-4">🏆</motion.div>
                   {winnerEntry && (
@@ -215,6 +218,21 @@ const AuctionDetail = () => {
           ← Back to Auctions
         </Link>
 
+        {/* ═══════ INSTANCE NAVIGATION ═══════ */}
+        {configId && id && (
+          <InstanceNavigation currentInstanceId={id} configId={configId} configName={configName} />
+        )}
+
+        {/* ═══════ WINNER BANNER (resolved only) ═══════ */}
+        {isResolved && winnerEntry && (
+          <WinnerBanner
+            username={winnerEntry.username}
+            bidAmount={Number(winnerEntry.bid_amount)}
+            prizeWon={Math.floor(auction.prizePool * 0.55)}
+            burnedAmount={Number(auction.burnedBids)}
+          />
+        )}
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
@@ -229,7 +247,6 @@ const AuctionDetail = () => {
               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${sc.class}`}>
                 {sc.label}
               </span>
-              {/* Resolution method badge */}
               {auction.resolutionMethod && (
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
                   auction.resolutionMethod === 'highest_unique_bid' ? 'bg-gold-subtle text-primary border border-gold' :
@@ -269,7 +286,6 @@ const AuctionDetail = () => {
               </motion.div>
               <div className="text-sm text-muted-foreground">PNGWIN</div>
 
-              {/* Accumulation progress */}
               {auction.type === 'live_before_hot' && auction.status === 'accumulating' && auction.bidTarget && (
                 <div className="mt-4">
                   <div className="text-xs text-muted-foreground mb-1">
@@ -286,7 +302,6 @@ const AuctionDetail = () => {
                 </div>
               )}
 
-              {/* Hot Mode / Grace Period Countdown */}
               {(auction.status === 'hot_mode' || auction.status === 'grace_period') && countdown && (
                 <div className="mt-4">
                   <motion.div
@@ -305,7 +320,6 @@ const AuctionDetail = () => {
                 </div>
               )}
 
-              {/* Timed countdown */}
               {auction.type === 'timed' && countdown && auction.status === 'accumulating' && (
                 <div className="mt-4">
                   <div className="font-mono text-4xl font-bold text-ice">{countdown}</div>
@@ -313,7 +327,6 @@ const AuctionDetail = () => {
                 </div>
               )}
 
-              {/* Blind mode mystery */}
               {isBlind && auction.status === 'accumulating' && (
                 <div className="mt-4">
                   <motion.div
@@ -368,7 +381,6 @@ const AuctionDetail = () => {
               >
                 <div className="text-2xl mb-2">🏆</div>
                 <div className="font-display font-bold text-primary">Auction Resolved</div>
-                {/* Show drawn numbers for RNG auctions */}
                 {auction.drawnNumbers && auction.drawnNumbers.length > 0 && (
                   <div className="flex justify-center gap-2 mt-3 mb-2">
                     {auction.drawnNumbers.map((n, i) => (
@@ -421,10 +433,14 @@ const AuctionDetail = () => {
               </div>
             )}
 
+            {/* Prize Breakdown (active auctions) */}
+            {isActive && (
+              <PrizeBreakdown prizePool={auction.prizePool} totalCollected={auction.totalBidFees ?? auction.prizePool} />
+            )}
+
             {/* Stats */}
             <div className="grid grid-cols-3 gap-2">
               <KpiCard label="Total Bids" value={auction.bidCount} color="ice" />
-              {/* Hide unique/burned counts for blind auctions that aren't resolved */}
               {(!isBlind || isResolved) ? (
                 <>
                   <KpiCard label="Unique" value={auction.uniqueBids} color="green" />
@@ -498,7 +514,7 @@ const AuctionDetail = () => {
               )}
             </div>
 
-            {/* Leaderboard — hidden for blind/jackpot until resolved */}
+            {/* Leaderboard */}
             {!isJackpot && shouldShowLeaderboard && (
               <div className="bg-card border border-border rounded-lg">
                 <div className="px-5 py-3 border-b border-border flex justify-between items-center">
@@ -594,6 +610,11 @@ const AuctionDetail = () => {
               userPerformance={resultsData.userPerformance}
             />
           </div>
+        )}
+
+        {/* ═══════ PAST AUCTION HISTORY ═══════ */}
+        {configId && id && (
+          <PastAuctionHistory configId={configId} configName={configName} currentInstanceId={id} />
         )}
       </div>
     </div>
