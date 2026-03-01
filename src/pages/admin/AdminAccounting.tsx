@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
+import { CURRENCIES, getCurrencyConfig, formatCurrencyAmount, type Currency } from '@/lib/currencies';
 
 /* ───── types ───── */
 interface AuctionRow {
@@ -22,6 +23,7 @@ interface AuctionRow {
   name: string;
   auction_type: string;
   status: string;
+  currency: string;
   bids: number;
   users: number;
   collected: number;
@@ -38,6 +40,7 @@ interface LedgerRow {
   description: string;
   gross_amount: number;
   direction: string;
+  currency: string;
   user_id: string;
   username: string;
   instance_id: string | null;
@@ -48,12 +51,11 @@ interface LedgerRow {
 /* ───── component ───── */
 const AdminAccounting = () => {
   const navigate = useNavigate();
+  const [currencyFilter, setCurrencyFilter] = useState<'All' | Currency>('All');
 
   /* --- Section 1: Global stats --- */
-  const [stats, setStats] = useState({
-    totalRevenue: 0, totalPrizes: 0, totalBurned: 0,
-    jackpotBalance: 0, platformProfit: 0, totalUsers: 0,
-  });
+  const [statsByCurrency, setStatsByCurrency] = useState<Record<string, { revenue: number; burned: number; jackpot: number; prizes: number; platform: number }>>({});
+  const [totalUsers, setTotalUsers] = useState(0);
   const [statsLoading, setStatsLoading] = useState(true);
 
   /* --- Section 2: Per-auction cards --- */
@@ -66,11 +68,11 @@ const AdminAccounting = () => {
   const [ledgerLoading, setLedgerLoading] = useState(true);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerTotal, setLedgerTotal] = useState(0);
-  const [ledgerFilter, setLedgerFilter] = useState({ type: '', user: '' });
+  const [ledgerFilter, setLedgerFilter] = useState({ type: '', user: '', currency: '' });
   const LEDGER_PAGE_SIZE = 50;
 
   /* --- Section 4: Burn tracker --- */
-  const [burnTotals, setBurnTotals] = useState({ PNGWIN: 0, TON: 0, SOL: 0 });
+  const [burnTotals, setBurnTotals] = useState<Record<string, number>>({});
   const [burnChart, setBurnChart] = useState<{ day: string; cumulative: number }[]>([]);
   const [burnLoading, setBurnLoading] = useState(true);
 
@@ -96,25 +98,38 @@ const AdminAccounting = () => {
   const loadStats = async () => {
     setStatsLoading(true);
     const [revRes, allocRes, jpRes, usersRes] = await Promise.all([
-      supabase.from('ledger_events').select('gross_amount').in('event_type', ['BID_FEE', 'AUCTION_BID']).eq('direction', 'OUT'),
-      supabase.from('ledger_allocations').select('recipient_type, amount'),
-      supabase.from('jackpots').select('current_balance').eq('status', 'ACTIVE'),
+      supabase.from('ledger_events').select('gross_amount, currency').in('event_type', ['BID_FEE', 'AUCTION_BID']).eq('direction', 'OUT'),
+      supabase.from('ledger_allocations').select('recipient_type, amount, currency'),
+      supabase.from('jackpots').select('current_balance, currency').eq('status', 'ACTIVE'),
       supabase.from('users').select('id', { count: 'exact', head: true }),
     ]);
 
-    const revenue = (revRes.data ?? []).reduce((s, e: any) => s + Number(e.gross_amount), 0);
-    const allocs = allocRes.data ?? [];
-    const byType = (t: string) => allocs.filter((a: any) => a.recipient_type === t).reduce((s, a: any) => s + Number(a.amount), 0);
-    const prizes = byType('winner') + byType('rollover');
-    const burned = byType('burn');
-    const social = ['social_L1', 'social_L2', 'social_L3', 'social_L4', 'social_L5'].reduce((s, t) => s + byType(t), 0);
-    const platform = byType('platform');
-    const jackpot = (jpRes.data ?? []).reduce((s, j: any) => s + Number(j.current_balance), 0);
+    const byCur: Record<string, { revenue: number; burned: number; jackpot: number; prizes: number; platform: number }> = {};
+    CURRENCIES.forEach(c => { byCur[c] = { revenue: 0, burned: 0, jackpot: 0, prizes: 0, platform: 0 }; });
 
-    setStats({
-      totalRevenue: revenue, totalPrizes: prizes, totalBurned: burned,
-      jackpotBalance: jackpot, platformProfit: platform, totalUsers: usersRes.count ?? 0,
+    (revRes.data ?? []).forEach((e: any) => {
+      const cur = e.currency ?? 'PNGWIN';
+      if (!byCur[cur]) byCur[cur] = { revenue: 0, burned: 0, jackpot: 0, prizes: 0, platform: 0 };
+      byCur[cur].revenue += Number(e.gross_amount);
     });
+
+    (allocRes.data ?? []).forEach((a: any) => {
+      const cur = a.currency ?? 'PNGWIN';
+      if (!byCur[cur]) byCur[cur] = { revenue: 0, burned: 0, jackpot: 0, prizes: 0, platform: 0 };
+      const amt = Number(a.amount);
+      if (a.recipient_type === 'burn') byCur[cur].burned += amt;
+      if (a.recipient_type === 'winner' || a.recipient_type === 'rollover') byCur[cur].prizes += amt;
+      if (a.recipient_type === 'platform') byCur[cur].platform += amt;
+      if (a.recipient_type === 'jackpot') byCur[cur].jackpot += amt;
+    });
+
+    (jpRes.data ?? []).forEach((j: any) => {
+      const cur = j.currency ?? 'PNGWIN';
+      if (byCur[cur]) byCur[cur].jackpot = Math.max(byCur[cur].jackpot, Number(j.current_balance));
+    });
+
+    setStatsByCurrency(byCur);
+    setTotalUsers(usersRes.count ?? 0);
     setStatsLoading(false);
   };
 
@@ -122,7 +137,7 @@ const AdminAccounting = () => {
     setAuctionsLoading(true);
     const { data: instances } = await supabase
       .from('auction_instances')
-      .select('id, status, total_bids, total_unique_bidders, total_bid_fees, auction_configs(name, auction_type)')
+      .select('id, status, total_bids, total_unique_bidders, total_bid_fees, auction_configs(name, auction_type, currency)')
       .order('created_at', { ascending: false })
       .limit(200);
 
@@ -148,6 +163,7 @@ const AdminAccounting = () => {
         name: i.auction_configs?.name ?? 'Unknown',
         auction_type: i.auction_configs?.auction_type ?? '',
         status: i.status,
+        currency: i.auction_configs?.currency ?? 'PNGWIN',
         bids: i.total_bids ?? 0,
         users: i.total_unique_bidders ?? 0,
         collected: Number(i.total_bid_fees ?? 0),
@@ -169,12 +185,13 @@ const AdminAccounting = () => {
 
     let query = supabase
       .from('ledger_events')
-      .select('id, created_at, event_type, description, gross_amount, direction, user_id, game_instance_id, users(username)', { count: 'exact' })
+      .select('id, created_at, event_type, description, gross_amount, direction, currency, user_id, game_instance_id, users(username)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to);
 
     if (ledgerFilter.type) query = query.eq('event_type', ledgerFilter.type);
     if (ledgerFilter.user) query = query.ilike('users.username', `%${ledgerFilter.user}%`);
+    if (ledgerFilter.currency) query = query.eq('currency', ledgerFilter.currency);
 
     const { data, count } = await query;
     setLedgerTotal(count ?? 0);
@@ -200,6 +217,7 @@ const AdminAccounting = () => {
       description: e.description ?? '',
       gross_amount: Number(e.gross_amount),
       direction: e.direction,
+      currency: e.currency ?? 'PNGWIN',
       user_id: e.user_id,
       username: (Array.isArray(e.users) ? e.users[0]?.username : e.users?.username) ?? '',
       instance_id: e.game_instance_id,
@@ -219,7 +237,8 @@ const AdminAccounting = () => {
       .eq('recipient_type', 'burn')
       .order('created_at');
 
-    const totals: Record<string, number> = { PNGWIN: 0, TON: 0, SOL: 0 };
+    const totals: Record<string, number> = {};
+    CURRENCIES.forEach(c => { totals[c] = 0; });
     const byDay: Record<string, number> = {};
     let cumulative = 0;
 
@@ -232,18 +251,21 @@ const AdminAccounting = () => {
       byDay[day] = cumulative;
     });
 
-    setBurnTotals(totals as any);
+    setBurnTotals(totals);
     setBurnChart(Object.entries(byDay).map(([day, cumulative]) => ({ day, cumulative })));
     setBurnLoading(false);
   };
 
   const filteredAuctions = useMemo(() => {
-    if (auctionFilter === 'all') return auctions;
-    return auctions.filter(a => a.status === auctionFilter);
-  }, [auctions, auctionFilter]);
+    let list = auctions;
+    if (auctionFilter !== 'all') list = list.filter(a => a.status === auctionFilter);
+    if (currencyFilter !== 'All') list = list.filter(a => a.currency === currencyFilter);
+    return list;
+  }, [auctions, auctionFilter, currencyFilter]);
 
   const ledgerPages = Math.ceil(ledgerTotal / LEDGER_PAGE_SIZE);
   const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const fmtCur = (n: number, cur: string) => formatCurrencyAmount(n, cur);
 
   const maxBurn = Math.max(...Object.values(burnTotals), 1);
 
@@ -260,6 +282,25 @@ const AdminAccounting = () => {
     social_L5: 'text-ice',
   };
 
+  // Aggregate stats for display
+  const displayStats = useMemo(() => {
+    if (currencyFilter === 'All') {
+      // Sum only PNGWIN for the main numbers (show per-currency below)
+      const total = Object.values(statsByCurrency).reduce(
+        (acc, s) => ({
+          revenue: acc.revenue + s.revenue,
+          burned: acc.burned + s.burned,
+          jackpot: acc.jackpot + s.jackpot,
+          prizes: acc.prizes + s.prizes,
+          platform: acc.platform + s.platform,
+        }),
+        { revenue: 0, burned: 0, jackpot: 0, prizes: 0, platform: 0 }
+      );
+      return total;
+    }
+    return statsByCurrency[currencyFilter] ?? { revenue: 0, burned: 0, jackpot: 0, prizes: 0, platform: 0 };
+  }, [statsByCurrency, currencyFilter]);
+
   return (
     <div className="space-y-8">
       {/* Page Header */}
@@ -268,7 +309,7 @@ const AdminAccounting = () => {
           <h1 className="font-display text-2xl font-bold">
             Admin <span className="text-primary">Accounting</span>
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">Financial overview · Live Supabase data</p>
+          <p className="text-xs text-muted-foreground mt-1">Financial overview · Live data</p>
         </div>
         <button
           onClick={() => { loadStats(); loadAuctions(); loadLedger(); loadBurns(); }}
@@ -278,21 +319,81 @@ const AdminAccounting = () => {
         </button>
       </div>
 
-      {/* ─── SECTION 1: GLOBAL STATS ─── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {statsLoading ? (
-          Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-[14px]" />)
-        ) : (
-          <>
-            <StatCard label="Total Revenue" value={fmt(stats.totalRevenue)} color="green" icon="💰" />
-            <StatCard label="Tokens Burned" value={fmt(stats.totalBurned)} color="red" icon="🔥" delay={0.05} />
-            <StatCard label="Jackpot Balance" value={fmt(stats.jackpotBalance)} color="gold" icon="🎰" delay={0.1} />
-            <StatCard label="Active Users" value={stats.totalUsers} color="cyan" icon="👥" delay={0.15} />
-            <StatCard label="Prizes Paid" value={fmt(stats.totalPrizes)} color="purple" icon="🏆" delay={0.2} />
-            <StatCard label="Platform Profit" value={fmt(stats.platformProfit)} color="blue" icon="📊" delay={0.25} />
-          </>
-        )}
+      {/* ─── CURRENCY TABS ─── */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {(['All', ...CURRENCIES] as const).map(cur => {
+          const isActive = currencyFilter === cur;
+          const cfg = cur !== 'All' ? getCurrencyConfig(cur) : null;
+          return (
+            <button
+              key={cur}
+              onClick={() => setCurrencyFilter(cur as any)}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${
+                isActive
+                  ? 'bg-primary/10 border-gold text-primary'
+                  : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary'
+              }`}
+            >
+              {cfg ? `${cfg.icon} ${cur}` : '🌐 All'}
+            </button>
+          );
+        })}
       </div>
+
+      {/* ─── SECTION 1: GLOBAL STATS ─── */}
+      {statsLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-[14px]" />)}
+        </div>
+      ) : currencyFilter === 'All' ? (
+        /* Per-currency summary grid */
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <StatCard label="Total Revenue" value={fmt(displayStats.revenue)} color="green" icon="💰" />
+            <StatCard label="Tokens Burned" value={fmt(displayStats.burned)} color="red" icon="🔥" delay={0.05} />
+            <StatCard label="Jackpot Balance" value={fmt(displayStats.jackpot)} color="gold" icon="🎰" delay={0.1} />
+            <StatCard label="Active Users" value={totalUsers} color="cyan" icon="👥" delay={0.15} />
+            <StatCard label="Prizes Paid" value={fmt(displayStats.prizes)} color="purple" icon="🏆" delay={0.2} />
+            <StatCard label="Platform Profit" value={fmt(displayStats.platform)} color="blue" icon="📊" delay={0.25} />
+          </div>
+
+          {/* Per-currency breakdown */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {CURRENCIES.map(cur => {
+              const s = statsByCurrency[cur];
+              const cfg = getCurrencyConfig(cur);
+              if (!s || (s.revenue === 0 && s.burned === 0 && s.jackpot === 0)) return null;
+              return (
+                <motion.div
+                  key={cur}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`bg-card border rounded-xl p-3.5 ${cfg.borderColor}`}
+                >
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="text-sm">{cfg.icon}</span>
+                    <span className={`text-xs font-bold ${cfg.color}`}>{cur}</span>
+                  </div>
+                  <div className="space-y-1 text-[11px]">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Revenue</span><span className="font-mono font-semibold">{fmtCur(s.revenue, cur)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Burned</span><span className="font-mono font-semibold text-pngwin-red">{fmtCur(s.burned, cur)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Jackpot</span><span className="font-mono font-semibold text-primary">{fmtCur(s.jackpot, cur)}</span></div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <StatCard label="Revenue" value={fmtCur(displayStats.revenue, currencyFilter)} color="green" icon="💰" />
+          <StatCard label="Burned" value={fmtCur(displayStats.burned, currencyFilter)} color="red" icon="🔥" delay={0.05} />
+          <StatCard label="Jackpot" value={fmtCur(displayStats.jackpot, currencyFilter)} color="gold" icon="🎰" delay={0.1} />
+          <StatCard label="Users" value={totalUsers} color="cyan" icon="👥" delay={0.15} />
+          <StatCard label="Prizes" value={fmtCur(displayStats.prizes, currencyFilter)} color="purple" icon="🏆" delay={0.2} />
+          <StatCard label="Profit" value={fmtCur(displayStats.platform, currencyFilter)} color="blue" icon="📊" delay={0.25} />
+        </div>
+      )}
 
       {/* ─── SECTION 2: AUCTION CARDS ─── */}
       <div>
@@ -324,23 +425,31 @@ const AdminAccounting = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAuctions.map((row, i) => (
-              <AuctionBreakdownCard
-                key={row.instance_id}
-                name={row.name}
-                auctionType={row.auction_type}
-                status={row.status}
-                bids={row.bids}
-                users={row.users}
-                collected={row.collected}
-                prizePool={row.prize_pool}
-                burned={row.burned}
-                jackpotFeed={row.jackpot_feed}
-                socialPool={row.social_pool}
-                onClick={() => navigate(`/admin/auctions/${row.instance_id}`)}
-                delay={Math.min(i * 0.04, 0.3)}
-              />
-            ))}
+            {filteredAuctions.map((row, i) => {
+              const cfg = getCurrencyConfig(row.currency);
+              return (
+                <div key={row.instance_id} className="relative">
+                  {/* Currency badge */}
+                  <div className={`absolute top-3 right-3 z-10 px-2 py-0.5 rounded text-[10px] font-bold ${cfg.bgColor} ${cfg.color} border ${cfg.borderColor}`}>
+                    {cfg.icon} {row.currency}
+                  </div>
+                  <AuctionBreakdownCard
+                    name={row.name}
+                    auctionType={row.auction_type}
+                    status={row.status}
+                    bids={row.bids}
+                    users={row.users}
+                    collected={row.collected}
+                    prizePool={row.prize_pool}
+                    burned={row.burned}
+                    jackpotFeed={row.jackpot_feed}
+                    socialPool={row.social_pool}
+                    onClick={() => navigate(`/admin/auctions/${row.instance_id}`)}
+                    delay={Math.min(i * 0.04, 0.3)}
+                  />
+                </div>
+              );
+            })}
             {filteredAuctions.length === 0 && (
               <div className="col-span-full text-center text-muted-foreground text-sm py-12">No auctions found</div>
             )}
@@ -368,6 +477,17 @@ const AdminAccounting = () => {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={ledgerFilter.currency || 'all'} onValueChange={v => { setLedgerFilter(f => ({ ...f, currency: v === 'all' ? '' : v })); setLedgerPage(1); }}>
+              <SelectTrigger className="w-[120px] h-8 text-[11px] bg-background border-border">
+                <SelectValue placeholder="All Currencies" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Currencies</SelectItem>
+                {CURRENCIES.map(c => (
+                  <SelectItem key={c} value={c}>{getCurrencyConfig(c).icon} {c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               placeholder="Search user..."
               value={ledgerFilter.user}
@@ -382,65 +502,68 @@ const AdminAccounting = () => {
         ) : (
           <>
             {/* Header row */}
-            <div className="grid grid-cols-[140px_70px_1fr_100px_80px_100px_32px] items-center px-5 py-2.5 text-[11px] text-muted-foreground uppercase tracking-wider border-b border-border/50">
+            <div className="grid grid-cols-[140px_70px_1fr_60px_100px_80px_32px] items-center px-5 py-2.5 text-[11px] text-muted-foreground uppercase tracking-wider border-b border-border/50">
               <div>Timestamp</div>
               <div>Type</div>
               <div>User</div>
-              <div>Auction</div>
+              <div>Currency</div>
               <div className="text-right">Amount</div>
               <div className="text-right">Balance</div>
               <div />
             </div>
 
             {/* Rows */}
-            {ledger.map(row => (
-              <div key={row.id}>
-                <div
-                  className="grid grid-cols-[140px_70px_1fr_100px_80px_100px_32px] items-center px-5 py-3 text-[13px] border-b border-border/30 hover:bg-secondary/30 cursor-pointer transition-colors"
-                  onClick={() => row.allocations.length > 0 && toggleRow(row.id)}
-                >
-                  <div className="font-mono text-[12px] text-muted-foreground">
-                    {new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{' '}
-                    {new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                  <div><TransactionBadge type={row.event_type} /></div>
-                  <div className="font-medium truncate">{row.username ? `@${row.username}` : '—'}</div>
-                  <div className="text-xs text-muted-foreground truncate">{row.instance_id ? row.instance_id.slice(0, 8) : '—'}</div>
-                  <div className={`font-mono text-xs font-bold text-right ${row.direction === 'IN' ? 'text-pngwin-green' : 'text-pngwin-red'}`}>
-                    {row.direction === 'IN' ? '+' : '-'}{fmt(row.gross_amount)}
-                  </div>
-                  <div className="font-mono text-xs text-muted-foreground text-right">—</div>
-                  <div className="text-center text-muted-foreground">
-                    {row.allocations.length > 0 && (
-                      <span className={`text-xs transition-transform inline-block ${expandedRows.has(row.id) ? 'rotate-180' : ''}`}>▼</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Expanded detail */}
-                {expandedRows.has(row.id) && row.allocations.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="bg-background/50 px-5 py-3 border-b border-border/30"
+            {ledger.map(row => {
+              const cfg = getCurrencyConfig(row.currency);
+              return (
+                <div key={row.id}>
+                  <div
+                    className="grid grid-cols-[140px_70px_1fr_60px_100px_80px_32px] items-center px-5 py-3 text-[13px] border-b border-border/30 hover:bg-secondary/30 cursor-pointer transition-colors"
+                    onClick={() => row.allocations.length > 0 && toggleRow(row.id)}
                   >
-                    <div className="pl-10 space-y-1.5">
-                      {row.allocations.map((a, i) => (
-                        <div key={i} className="flex items-center justify-between text-[12px]">
-                          <span className="text-muted-foreground">
-                            → {a.recipient_type === 'burn' ? `Burned 🔥` : a.recipient_type}
-                          </span>
-                          <span className={`font-mono font-semibold ${allocColor[a.recipient_type] ?? 'text-foreground'}`}>
-                            {a.recipient_type === 'winner' || a.recipient_type.startsWith('social') ? '+' : ''}{fmt(a.amount)}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="font-mono text-[12px] text-muted-foreground">
+                      {new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{' '}
+                      {new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
-                  </motion.div>
-                )}
-              </div>
-            ))}
+                    <div><TransactionBadge type={row.event_type} /></div>
+                    <div className="font-medium truncate">{row.username ? `@${row.username}` : '—'}</div>
+                    <div className={`text-[11px] font-semibold ${cfg.color}`}>{cfg.icon} {row.currency}</div>
+                    <div className={`font-mono text-xs font-bold text-right ${row.direction === 'IN' ? 'text-pngwin-green' : 'text-pngwin-red'}`}>
+                      {row.direction === 'IN' ? '+' : '-'}{fmtCur(row.gross_amount, row.currency)}
+                    </div>
+                    <div className="font-mono text-xs text-muted-foreground text-right">—</div>
+                    <div className="text-center text-muted-foreground">
+                      {row.allocations.length > 0 && (
+                        <span className={`text-xs transition-transform inline-block ${expandedRows.has(row.id) ? 'rotate-180' : ''}`}>▼</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Expanded detail */}
+                  {expandedRows.has(row.id) && row.allocations.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="bg-background/50 px-5 py-3 border-b border-border/30"
+                    >
+                      <div className="pl-10 space-y-1.5">
+                        {row.allocations.map((a, i) => (
+                          <div key={i} className="flex items-center justify-between text-[12px]">
+                            <span className="text-muted-foreground">
+                              → {a.recipient_type === 'burn' ? `Burned 🔥` : a.recipient_type}
+                            </span>
+                            <span className={`font-mono font-semibold ${allocColor[a.recipient_type] ?? 'text-foreground'}`}>
+                              {a.recipient_type === 'winner' || a.recipient_type.startsWith('social') ? '+' : ''}{fmt(a.amount)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              );
+            })}
 
             {ledger.length === 0 && (
               <div className="text-center text-muted-foreground text-sm py-12">No transactions</div>
@@ -503,16 +626,16 @@ const AdminAccounting = () => {
           <Skeleton className="h-48 w-full rounded-[14px]" />
         ) : (
           <>
-            {/* Burn cards */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              {Object.entries(burnTotals).map(([token, amount], i) => {
-                const icons: Record<string, string> = { PNGWIN: '🐧', TON: '💎', SOL: '◎' };
+            {/* Burn cards — all 6 currencies */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+              {CURRENCIES.map((token, i) => {
+                const cfg = getCurrencyConfig(token);
                 return (
                   <BurnCard
                     key={token}
                     token={token}
-                    icon={icons[token] ?? '🪙'}
-                    amount={amount}
+                    icon={cfg.icon}
+                    amount={burnTotals[token] ?? 0}
                     maxAmount={maxBurn}
                     delay={i * 0.08}
                   />

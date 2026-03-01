@@ -6,6 +6,7 @@ import { COMPLETED_AUCTIONS } from '@/data/drawHistory';
 import type { Auction } from '@/data/mockData';
 import { useAuctions, useAuctionHistory } from '@/hooks/useAuctions';
 import JackpotCounter from '@/components/JackpotCounter';
+import { getCurrencyConfig, formatCurrencyAmount } from '@/lib/currencies';
 
 // Jackpot Featured Card with countdown to Friday 20:00 UTC
 const JackpotFeaturedCard = ({ auction }: { auction: Auction }) => {
@@ -99,6 +100,8 @@ const AuctionLobbyCard = ({ auction }: { auction: Auction }) => {
   const style = STATUS_STYLES[auction.status] ?? STATUS_STYLES.accumulating;
   const isHot = auction.status === 'hot_mode';
   const isGrace = auction.status === 'grace_period';
+  const currency = auction.currency ?? 'PNGWIN';
+  const cfg = getCurrencyConfig(currency);
 
   return (
     <Link to={`/auction/${auction.id}`}>
@@ -115,9 +118,16 @@ const AuctionLobbyCard = ({ auction }: { auction: Auction }) => {
             <span className="text-xl">{TYPE_ICONS[auction.type] || '🎯'}</span>
             <h3 className="font-display font-bold text-sm">{auction.title}</h3>
           </div>
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase ${style.bg} ${style.text} border ${style.border}`}>
-            {isHot ? '🔥 HOT' : isGrace ? '⏳ GRACE' : auction.status === 'resolved' ? '✅ DONE' : auction.status.replace(/_/g, ' ')}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {currency !== 'PNGWIN' && (
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${cfg.bgColor} ${cfg.color} border ${cfg.borderColor}`}>
+                {cfg.icon} {currency}
+              </span>
+            )}
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase ${style.bg} ${style.text} border ${style.border}`}>
+              {isHot ? '🔥 HOT' : isGrace ? '⏳ GRACE' : auction.status === 'resolved' ? '✅ DONE' : auction.status.replace(/_/g, ' ')}
+            </span>
+          </div>
         </div>
 
         {/* Resolution method badge */}
@@ -134,9 +144,9 @@ const AuctionLobbyCard = ({ auction }: { auction: Auction }) => {
 
         <div className="mb-3 relative z-10">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Prize Pool</div>
-          <div className="font-mono text-2xl font-bold text-primary">
-            {auction.prizePool.toLocaleString()}
-            <span className="text-xs text-muted-foreground ml-1">PNGWIN</span>
+          <div className={`font-mono text-2xl font-bold ${currency !== 'PNGWIN' ? cfg.color : 'text-primary'}`}>
+            {cfg.icon} {formatCurrencyAmount(auction.prizePool, currency)}
+            <span className="text-xs text-muted-foreground ml-1">{currency}</span>
           </div>
         </div>
 
@@ -181,8 +191,8 @@ const AuctionLobbyCard = ({ auction }: { auction: Auction }) => {
 
         <div className="mt-3 pt-3 border-t border-border flex justify-between items-center text-xs relative z-10">
           <span className="text-muted-foreground">Bid Cost</span>
-          <span className="font-mono font-bold text-primary">
-            {auction.bidCost === 0 ? 'FREE' : `${auction.bidCost} PNGWIN`}
+          <span className={`font-mono font-bold ${currency !== 'PNGWIN' ? cfg.color : 'text-primary'}`}>
+            {auction.bidCost === 0 ? 'FREE' : `${cfg.icon} ${formatCurrencyAmount(auction.bidCost, currency)} ${currency}`}
           </span>
         </div>
       </motion.div>

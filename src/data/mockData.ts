@@ -15,6 +15,7 @@ export interface Auction {
   uniqueBids: number;
   burnedBids: number;
   icon: string;
+  currency?: string;
   rolloverWeek?: number;
   rolloverHistory?: number[];
   minBidValue?: number;
@@ -79,6 +80,7 @@ export const AUCTIONS: Auction[] = [
     uniqueBids: 42,
     burnedBids: 25,
     icon: '🎯',
+    currency: 'PNGWIN',
   },
   {
     id: 'live-2',
@@ -93,6 +95,7 @@ export const AUCTIONS: Auction[] = [
     uniqueBids: 78,
     burnedBids: 56,
     icon: '🔥',
+    currency: 'PNGWIN',
   },
   {
     id: 'timed-1',
@@ -106,6 +109,7 @@ export const AUCTIONS: Auction[] = [
     uniqueBids: 31,
     burnedBids: 14,
     icon: '⏱️',
+    currency: 'PNGWIN',
   },
   {
     id: 'blind-1',
@@ -118,6 +122,7 @@ export const AUCTIONS: Auction[] = [
     uniqueBids: 55,
     burnedBids: 34,
     icon: '🙈',
+    currency: 'PNGWIN',
   },
   {
     id: 'free-1',
@@ -131,6 +136,7 @@ export const AUCTIONS: Auction[] = [
     uniqueBids: 20,
     burnedBids: 3,
     icon: '🎁',
+    currency: 'PNGWIN',
   },
   {
     id: 'jackpot-1',
@@ -144,6 +150,7 @@ export const AUCTIONS: Auction[] = [
     uniqueBids: 145,
     burnedBids: 89,
     icon: '🎰',
+    currency: 'PNGWIN',
     rolloverWeek: 4,
     rolloverHistory: [5000, 15000, 45000, 125000],
   },
