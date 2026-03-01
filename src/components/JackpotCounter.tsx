@@ -2,9 +2,15 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
 const JackpotCounter = ({ amount }: { amount: number }) => {
-  const [displayed, setDisplayed] = useState(amount - 500);
+  const [displayed, setDisplayed] = useState(Math.max(0, amount - 500));
 
   useEffect(() => {
+    // Reset displayed when amount changes significantly
+    setDisplayed(Math.max(0, amount - 500));
+  }, [amount]);
+
+  useEffect(() => {
+    if (displayed >= amount) return;
     const interval = setInterval(() => {
       setDisplayed((prev) => {
         if (prev >= amount) return amount;
@@ -12,7 +18,7 @@ const JackpotCounter = ({ amount }: { amount: number }) => {
       });
     }, 100);
     return () => clearInterval(interval);
-  }, [amount]);
+  }, [amount, displayed]);
 
   return (
     <motion.div
@@ -28,9 +34,6 @@ const JackpotCounter = ({ amount }: { amount: number }) => {
         {Math.min(displayed, amount).toLocaleString()}
       </div>
       <div className="text-sm text-muted-foreground mt-1">PNGWIN</div>
-      <div className="text-xs text-pngwin-orange mt-2 font-semibold">
-        Week 4 Rollover — No winners for 3 weeks! 🔥
-      </div>
     </motion.div>
   );
 };

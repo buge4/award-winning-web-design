@@ -455,7 +455,7 @@ const AuctionDetail = () => {
             </div>
 
             {/* Social Circle Widget */}
-            <SocialCircleWidget context="auction" />
+            <SocialCircleWidget context="auction" instanceId={id} />
           </div>
 
           {/* Right column */}
