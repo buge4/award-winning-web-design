@@ -1,14 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import UplineSection from '@/components/admin/users/UplineSection';
+import ReferralSummary from '@/components/admin/users/ReferralSummary';
+import UserStatsCards from '@/components/admin/users/UserStatsCards';
+import TransactionHistory from '@/components/admin/users/TransactionHistory';
+import BidHistory from '@/components/admin/users/BidHistory';
+import CreditModal from '@/components/admin/users/CreditModal';
 
 const AdminUsers = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<'date' | 'balance' | 'bids'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'balance'>('date');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [userDetail, setUserDetail] = useState<any>(null);
   const [creditModal, setCreditModal] = useState<{ userId: string; username: string } | null>(null);
@@ -38,8 +43,8 @@ const AdminUsers = () => {
 
   const loadUserDetail = async (userId: string) => {
     const [ledgerRes, bidsRes, referralsRes] = await Promise.all([
-      supabase.from('ledger_events').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
-      supabase.from('auction_bids').select('*, auction_instances(auction_configs(name))').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
+      supabase.from('ledger_events').select('*').eq('user_id', userId).eq('source_project', 'auction').order('created_at', { ascending: false }).limit(200),
+      supabase.from('auction_bids').select('*, auction_instances(auction_configs(name))').eq('user_id', userId).order('created_at', { ascending: false }).limit(200),
       supabase.from('users').select('id, username').eq('upline_1', userId),
     ]);
     setUserDetail({
@@ -91,17 +96,18 @@ const AdminUsers = () => {
 
   if (loading) return <div className="text-center py-10 text-muted-foreground text-sm">Loading users...</div>;
 
-  // User Detail View
+  // ─── User Detail View ───
   if (selectedUser) {
     const u = selectedUser.users ?? {};
-    const detailTab = ['transactions', 'bids', 'referrals'] as const;
-    const [tab, setTab] = [detailTab[0], () => {}]; // Simple tab state managed inline
 
     return (
       <div>
-        <button onClick={() => { setSelectedUser(null); setUserDetail(null); }} className="text-xs text-muted-foreground hover:text-foreground mb-4">← Back to Users</button>
+        <button onClick={() => { setSelectedUser(null); setUserDetail(null); }}
+          className="text-xs text-muted-foreground hover:text-foreground mb-4 flex items-center gap-1">
+          ← Back to Users
+        </button>
 
-        {/* Header */}
+        {/* User Card */}
         <div className="bg-card border border-border rounded-xl p-5 mb-4">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full gradient-ice flex items-center justify-center text-lg font-bold text-background">
@@ -120,6 +126,7 @@ const AdminUsers = () => {
             <div className="text-right">
               <div className="text-[10px] text-muted-foreground">Wallet Balance</div>
               <div className="font-mono text-xl font-bold text-primary">{(selectedUser.walletBalance ?? 0).toLocaleString()}</div>
+              <div className="text-[9px] text-muted-foreground">PNGWIN</div>
               <button onClick={() => setCreditModal({ userId: selectedUser.user_id, username: u.username ?? 'user' })}
                 className="text-xs text-ice hover:text-ice/80 mt-1">💰 Credit/Debit</button>
             </div>
@@ -132,100 +139,21 @@ const AdminUsers = () => {
           )}
         </div>
 
-        {/* Activity Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          {[
-            { label: 'Total Bids', value: userDetail?.bids?.length ?? 0, icon: '🎯' },
-            { label: 'Wins', value: userDetail?.bids?.filter((b: any) => b.is_winning)?.length ?? 0, icon: '🏆' },
-            { label: 'Referrals', value: userDetail?.referrals?.length ?? 0, icon: '🐧' },
-            { label: 'Transactions', value: userDetail?.ledger?.length ?? 0, icon: '📋' },
-          ].map(s => (
-            <div key={s.label} className="bg-card border border-border rounded-xl p-3">
-              <span className="mr-1">{s.icon}</span>
-              <span className="text-[10px] text-muted-foreground">{s.label}</span>
-              <div className="font-mono text-lg font-bold">{s.value}</div>
-            </div>
-          ))}
-        </div>
+        {/* Stats */}
+        <UserStatsCards userId={selectedUser.user_id} userDetail={userDetail} />
 
-        {/* Referral Tree */}
-        {userDetail?.referrals?.length > 0 && (
-          <div className="bg-card border border-border rounded-xl p-5 mb-4">
-            <h3 className="font-display font-bold text-sm mb-3">🐧 Referral Tree ({userDetail.referrals.length})</h3>
-            <div className="flex flex-wrap gap-2">
-              {userDetail.referrals.map((ref: any) => (
-                <span key={ref.id} className="px-3 py-1 bg-ice-subtle text-ice rounded-full text-xs font-semibold">@{ref.username}</span>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Upline */}
+        <UplineSection user={u} />
+
+        {/* Referral Summary (replaces badge dump) */}
+        <ReferralSummary userId={selectedUser.user_id} totalReferrals={userDetail?.referrals?.length ?? 0} />
 
         {/* Transaction History */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden mb-4">
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="font-display font-bold text-sm">📋 Transaction History</h3>
-          </div>
-          <div className="overflow-x-auto max-h-80 overflow-y-auto">
-            <table className="w-full">
-              <thead className="sticky top-0 bg-card">
-                <tr className="border-b border-border">
-                  {['Date', 'Type', 'Amount', 'Dir', 'Project', 'Description'].map(h => (
-                    <th key={h} className="text-left px-4 py-2 text-[10px] text-muted-foreground uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(userDetail?.ledger ?? []).map((e: any) => (
-                  <tr key={e.id} className="border-b border-border/30">
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{new Date(e.created_at).toLocaleString()}</td>
-                    <td className="px-4 py-2 text-xs font-semibold">{e.event_type}</td>
-                    <td className="px-4 py-2 font-mono text-sm">{Number(e.gross_amount).toLocaleString()}</td>
-                    <td className="px-4 py-2">
-                      <span className={`text-[10px] font-bold ${e.direction === 'IN' ? 'text-pngwin-green' : 'text-pngwin-red'}`}>{e.direction}</span>
-                    </td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{e.source_project}</td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground truncate max-w-xs">{e.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <TransactionHistory ledger={userDetail?.ledger ?? []} />
 
         {/* Bid History */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="font-display font-bold text-sm">🎯 Bid History</h3>
-          </div>
-          <div className="overflow-x-auto max-h-80 overflow-y-auto">
-            <table className="w-full">
-              <thead className="sticky top-0 bg-card">
-                <tr className="border-b border-border">
-                  {['Auction', 'Bid', 'Status', 'Won?', 'Date'].map(h => (
-                    <th key={h} className="text-left px-4 py-2 text-[10px] text-muted-foreground uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(userDetail?.bids ?? []).map((b: any) => (
-                  <tr key={b.id} className="border-b border-border/30">
-                    <td className="px-4 py-2 text-xs">{b.auction_instances?.auction_configs?.name ?? '—'}</td>
-                    <td className="px-4 py-2 font-mono text-sm">{b.bid_amount}</td>
-                    <td className="px-4 py-2">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${b.is_burned ? 'bg-pngwin-red/10 text-pngwin-red' : 'bg-pngwin-green/10 text-pngwin-green'}`}>
-                        {b.is_burned ? 'BURNED' : 'UNIQUE'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">{b.is_winning ? '🏆' : '—'}</td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{new Date(b.created_at).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <BidHistory bids={userDetail?.bids ?? []} />
 
-        {/* Credit Modal */}
         <CreditModal creditModal={creditModal} setCreditModal={setCreditModal} creditAmount={creditAmount} setCreditAmount={setCreditAmount}
           creditDirection={creditDirection} setCreditDirection={setCreditDirection} creditReason={creditReason} setCreditReason={setCreditReason}
           submitting={submitting} handleCredit={handleCredit} />
@@ -233,7 +161,7 @@ const AdminUsers = () => {
     );
   }
 
-  // User List View
+  // ─── User List View ───
   return (
     <div>
       <h1 className="font-display text-2xl font-bold mb-4">👥 Users</h1>
@@ -309,48 +237,5 @@ const AdminUsers = () => {
     </div>
   );
 };
-
-// Shared Credit/Debit Modal
-const CreditModal = ({ creditModal, setCreditModal, creditAmount, setCreditAmount, creditDirection, setCreditDirection, creditReason, setCreditReason, submitting, handleCredit }: any) => (
-  <AnimatePresence>
-    {creditModal && (
-      <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setCreditModal(null)}>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-          className="bg-card border border-border-active rounded-2xl p-6 max-w-sm w-full" onClick={(e: any) => e.stopPropagation()}>
-          <h3 className="font-display font-bold text-lg mb-4">💰 Credit/Debit @{creditModal.username}</h3>
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <button onClick={() => setCreditDirection('IN')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold border ${creditDirection === 'IN' ? 'bg-pngwin-green/20 text-pngwin-green border-pngwin-green/30' : 'border-border text-muted-foreground'}`}>
-                ➕ Credit (IN)
-              </button>
-              <button onClick={() => setCreditDirection('OUT')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold border ${creditDirection === 'OUT' ? 'bg-pngwin-red/20 text-pngwin-red border-pngwin-red/30' : 'border-border text-muted-foreground'}`}>
-                ➖ Debit (OUT)
-              </button>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Amount</label>
-              <input value={creditAmount} onChange={(e: any) => setCreditAmount(e.target.value)} type="number"
-                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:border-primary" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Reason</label>
-              <input value={creditReason} onChange={(e: any) => setCreditReason(e.target.value)} placeholder="Admin adjustment"
-                className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:border-primary" />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setCreditModal(null)} className="flex-1 py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg">Cancel</button>
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleCredit} disabled={submitting || !creditAmount}
-                className="flex-1 py-2 gradient-gold text-primary-foreground font-display font-bold text-xs rounded-lg shadow-gold disabled:opacity-60">
-                {submitting ? 'Processing...' : 'Confirm'}
-              </motion.button>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    )}
-  </AnimatePresence>
-);
 
 export default AdminUsers;
