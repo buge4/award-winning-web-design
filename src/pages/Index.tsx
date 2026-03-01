@@ -6,6 +6,8 @@ import MyRecentBids from '@/components/lobby/MyRecentBids';
 import LobbyLeaderboard from '@/components/lobby/LobbyLeaderboard';
 import BurnCounters from '@/components/lobby/BurnCounters';
 import LiveTicker from '@/components/LiveTicker';
+import RecentWinnersTicker from '@/components/lobby/RecentWinnersTicker';
+import CryptoAuctionCards from '@/components/lobby/CryptoAuctionCards';
 import { useHeroJackpot, useFeaturedAuction } from '@/hooks/useLobbyData';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -48,6 +50,9 @@ const Index = () => {
 
       {/* Live Ticker */}
       <LiveTicker />
+
+      {/* ═══════ RECENT WINNERS TICKER ═══════ */}
+      <RecentWinnersTicker />
 
       {/* ═══════ BURN COUNTERS ═══════ */}
       <div className="container py-5">
@@ -141,6 +146,9 @@ const Index = () => {
           )}
         </div>
       </div>
+
+      {/* ═══════ CRYPTO PRIZE AUCTIONS ═══════ */}
+      <CryptoAuctionCards />
 
       {/* ═══════ MY RECENT BIDS ═══════ */}
       <div className="container pb-10">
