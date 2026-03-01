@@ -33,21 +33,37 @@ const AdminClaude = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('claude-admin-chat', {
-        body: {
-          message: text.trim(),
-          conversation_history: history.map(m => ({ role: m.role, content: m.content })),
-        },
-      });
+      const response = await fetch(
+        `https://bfnkbidqriackvtsvqqq.supabase.co/functions/v1/claude-admin-chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmbmtiaWRxcmlhY2t2dHN2cXFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MTgwMjUsImV4cCI6MjA4NzA5NDAyNX0.mo_X9CfCDiEaKesbD1A5F1fUH9P_cJoWqJNsgq9NiNw',
+          },
+          body: JSON.stringify({
+            message: text.trim(),
+            conversation_history: history.map(m => ({ role: m.role, content: m.content })),
+          }),
+        }
+      );
 
-      if (error) throw new Error(error.message ?? 'Edge function error');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? `Edge function returned ${response.status}`);
+      }
       if (data?.error) throw new Error(data.error);
 
       setMessages(prev => [...prev, { role: 'assistant', content: data.response ?? 'No response' }]);
     } catch (e: any) {
-      const errMsg = e?.message?.includes('timed out')
+      const msg = e?.message ?? 'Unknown error';
+      const errMsg = msg.includes('timed out') || msg.includes('timeout')
         ? 'Request timed out after 30 seconds. The VPS may be unresponsive.'
-        : `Could not reach Claude Admin. ${e?.message ?? 'Check VPS status.'}`;
+        : msg.includes('Failed to fetch') || msg.includes('NetworkError')
+        ? 'Network error — could not reach the edge function. Check your connection.'
+        : `Claude Admin error: ${msg}`;
       setMessages(prev => [...prev, { role: 'error', content: errMsg }]);
     } finally {
       setLoading(false);
