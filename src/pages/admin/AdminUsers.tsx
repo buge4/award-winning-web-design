@@ -108,13 +108,24 @@ const AdminUsers = () => {
     if (!sponsorModal || !newSponsor) return;
     setSponsorSubmitting(true);
     try {
-      const res = await supabase.functions.invoke('claude-admin-chat', {
-        body: {
-          message: `Change sponsor: move @${sponsorModal.username} to @${newSponsor}`,
-          history: [],
-        },
-      });
-      if (res.error) throw res.error;
+      const session = (await supabase.auth.getSession()).data.session;
+      const res = await fetch(
+        'https://bfnkbidqriackvtsvqqq.supabase.co/functions/v1/claude-admin-chat',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmbmtiaWRxcmlhY2t2dHN2cXFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MTgwMjUsImV4cCI6MjA4NzA5NDAyNX0.mo_X9CfCDiEaKesbD1A5F1fUH9P_cJoWqJNsgq9NiNw',
+          },
+          body: JSON.stringify({
+            message: `Change sponsor: move @${sponsorModal.username} under @${newSponsor}`,
+            conversation_history: [],
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `Error ${res.status}`);
       toast.success(`Sponsor change requested for @${sponsorModal.username} → @${newSponsor}`);
       setSponsorModal(null);
       setNewSponsor('');

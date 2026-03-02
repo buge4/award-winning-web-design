@@ -30,6 +30,9 @@ import ResultsPage from "./pages/ResultsPage";
 import ProfilePage from "./pages/ProfilePage";
 import JackpotPage from "./pages/JackpotPage";
 import AirdropPresentation from "./pages/AirdropPresentation";
+import AirdropHub from "./pages/AirdropHub";
+import AirdropTasks from "./pages/AirdropTasks";
+import AirdropYauc from "./pages/AirdropYauc";
 import NotFound from "./pages/NotFound";
 
 // Admin
@@ -43,6 +46,7 @@ import AdminFinance from "./pages/admin/AdminFinance";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminClaude from "./pages/admin/AdminClaude";
 import AdminAccounting from "./pages/admin/AdminAccounting";
+import AdminAirdrops from "./pages/admin/AdminAirdrops";
 
 const queryClient = new QueryClient();
 
@@ -81,6 +85,9 @@ const App = () => (
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/jackpot" element={<JackpotPage />} />
             <Route path="/airdrop-deck" element={<AirdropPresentation />} />
+            <Route path="/airdrop" element={<AirdropHub />} />
+            <Route path="/airdrop/tasks" element={<AirdropTasks />} />
+            <Route path="/airdrop/yauc" element={<AirdropYauc />} />
 
             {/* Admin routes */}
             <Route path="/admin" element={<AdminLayout />}>
@@ -92,6 +99,7 @@ const App = () => (
               <Route path="finance" element={<AdminFinance />} />
               <Route path="claude" element={<AdminClaude />} />
               <Route path="accounting" element={<AdminAccounting />} />
+              <Route path="airdrops" element={<AdminAirdrops />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>
             

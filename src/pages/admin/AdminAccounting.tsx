@@ -472,7 +472,7 @@ const AdminAccounting = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                {['BID_FEE', 'AUCTION_BID', 'AUCTION_WIN', 'CREDIT', 'SIGNUP_BONUS', 'SOCIAL_BONUS'].map(t => (
+                {['BID_FEE', 'AUCTION_BID', 'AUCTION_WIN', 'PRIZE_PAYOUT', 'CREDIT', 'DEBIT', 'SIGNUP_BONUS', 'SOCIAL_BONUS', 'BURN', 'JACKPOT_FEED', 'PLATFORM', 'AIRDROP', 'ADMIN_CREDIT'].map(t => (
                   <SelectItem key={t} value={t}>{t}</SelectItem>
                 ))}
               </SelectContent>
