@@ -1,6 +1,6 @@
 // Shared currency configuration for multi-currency support
 
-export const CURRENCIES = ['PNGWIN', 'ETH', 'BTC', 'SOL', 'TON', 'XRP'] as const;
+export const CURRENCIES = ['PNGWIN', 'ETH', 'BTC', 'SOL', 'TON', 'XRP', 'YAUC'] as const;
 export type Currency = typeof CURRENCIES[number];
 
 export interface CurrencyConfig {
@@ -66,6 +66,15 @@ export const CURRENCY_CONFIG: Record<Currency, CurrencyConfig> = {
     bgColor: 'bg-muted/50',
     borderColor: 'border-border',
     hex: '#23292F',
+    decimals: 0,
+  },
+  YAUC: {
+    symbol: 'YAUC',
+    icon: '🎟',
+    color: 'text-pngwin-purple',
+    bgColor: 'bg-pngwin-purple/10',
+    borderColor: 'border-pngwin-purple/30',
+    hex: '#9C27B0',
     decimals: 0,
   },
 };

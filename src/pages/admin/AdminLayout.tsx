@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { path: '/admin/finance', label: 'Finance', icon: '💰' },
   { path: '/admin/claude', label: 'Claude', icon: '🧠' },
   { path: '/admin/accounting', label: 'Accounting', icon: '📊' },
+  { path: '/admin/airdrops', label: 'Airdrops', icon: '🎟' },
   { path: '/admin/settings', label: 'Settings', icon: '⚙️' },
 ];
 
