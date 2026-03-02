@@ -89,15 +89,21 @@ const BidHistory = ({ bids }: { bids: any[] }) => {
                       <table className="w-full">
                         <thead>
                           <tr className="border-b border-border/50">
-                            {['Bid', 'Status', 'Won?', 'Date'].map(h => (
+                            {['Bid', 'Fee Paid', 'Status', 'Won?', 'Date'].map(h => (
                               <th key={h} className="text-left px-2 py-1.5 text-[9px] text-muted-foreground uppercase">{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {group.bids.map((b: any) => (
-                            <tr key={b.id} className="border-b border-border/20">
-                              <td className="px-2 py-1.5 font-mono text-sm">{b.bid_amount}</td>
+                            <tr key={b.id} className={`border-b border-border/20 ${
+                              b.is_winning ? 'bg-primary/[0.06]' : b.is_burned ? 'bg-pngwin-red/[0.06]' : ''
+                            }`}>
+                              <td className={`px-2 py-1.5 font-mono text-sm ${b.is_burned ? 'line-through text-muted-foreground' : ''}`}>
+                                {b.bid_amount}
+                                {b.is_unique && !b.is_burned && <span className="inline-block w-1.5 h-1.5 rounded-full bg-pngwin-green ml-1.5 align-middle" />}
+                              </td>
+                              <td className="px-2 py-1.5 font-mono text-[11px] text-muted-foreground">{b.bid_fee_paid ?? '—'}</td>
                               <td className="px-2 py-1.5">
                                 <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
                                   b.is_burned ? 'bg-pngwin-red/10 text-pngwin-red' : 'bg-pngwin-green/10 text-pngwin-green'

@@ -14,6 +14,7 @@ interface CryptoAuction {
   totalBidsToHot: number | null;
   hotModeEndsAt: string | null;
   visibility: string;
+  feeMode: string;
   manualPrizeTitle: string | null;
   manualPrizeValue: number | null;
 }
@@ -57,6 +58,7 @@ const CryptoAuctionCards = () => {
             totalBidsToHot: config.total_bids_to_hot ? Number(config.total_bids_to_hot) : null,
             hotModeEndsAt: r.hot_mode_ends_at,
             visibility: config.visibility ?? 'open',
+            feeMode: config.fee_mode ?? 'paid',
             manualPrizeTitle: config.manual_prize_title,
             manualPrizeValue: config.manual_prize_value ? Number(config.manual_prize_value) : null,
           };
@@ -112,6 +114,15 @@ const CryptoAuctionCards = () => {
                 style={{ background: theme.accent }}
               />
 
+              {/* FREE ENTRY badge */}
+              {a.feeMode === 'free' && (
+                <div className="absolute top-2 right-2 z-10">
+                  <span className="bg-[#9C27B0] text-white px-3 py-1 rounded-full text-[10px] font-bold animate-pulse">
+                    🎟 FREE ENTRY
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between mb-3">
                 <span className="text-2xl">{theme.icon}</span>
                 <div className="flex gap-1">
@@ -154,7 +165,11 @@ const CryptoAuctionCards = () => {
               )}
 
               <div className="text-[11px] text-muted-foreground mb-3">
-                Bid cost: <span className="font-mono font-bold text-foreground">{a.bidFee} {a.currency}</span>
+                {a.feeMode === 'free' ? (
+                  <span className="font-bold" style={{ color: '#9C27B0' }}>FREE — Win {a.manualPrizeValue ?? ''} {a.currency}!</span>
+                ) : (
+                  <>Bid cost: <span className="font-mono font-bold text-foreground">{a.bidFee} {a.currency}</span></>
+                )}
               </div>
 
               <Link

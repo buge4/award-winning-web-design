@@ -19,6 +19,7 @@ const AdminUsers = () => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [userDetail, setUserDetail] = useState<any>(null);
   const [userWallets, setUserWallets] = useState<Record<string, number>>({});
+  const [userWalletDetails, setUserWalletDetails] = useState<Record<string, any>>({});
   const [creditModal, setCreditModal] = useState<{ userId: string; username: string } | null>(null);
   const [creditAmount, setCreditAmount] = useState('');
   const [creditDirection, setCreditDirection] = useState<'IN' | 'OUT'>('IN');
@@ -58,14 +59,18 @@ const AdminUsers = () => {
       supabase.from('ledger_events').select('*').eq('user_id', userId).eq('source_project', 'auction').order('created_at', { ascending: false }).limit(200),
       supabase.from('auction_bids').select('*, auction_instances(auction_configs(name))').eq('user_id', userId).order('created_at', { ascending: false }).limit(200),
       supabase.from('users').select('id, username').eq('upline_1', userId),
-      supabase.from('wallets').select('balance, currency').eq('user_id', userId).eq('project_slug', 'auction'),
+      supabase.from('wallets').select('balance, currency, total_won, total_spent, total_bonus').eq('user_id', userId).eq('project_slug', 'auction'),
     ]);
 
     const wMap: Record<string, number> = {};
+    const wDetails: Record<string, any> = {};
     (walletsRes.data ?? []).forEach((w: any) => {
-      wMap[w.currency ?? 'PNGWIN'] = Number(w.balance);
+      const cur = w.currency ?? 'PNGWIN';
+      wMap[cur] = Number(w.balance);
+      wDetails[cur] = { total_won: Number(w.total_won ?? 0), total_spent: Number(w.total_spent ?? 0), total_bonus: Number(w.total_bonus ?? 0) };
     });
     setUserWallets(wMap);
+    setUserWalletDetails(wDetails);
 
     setUserDetail({
       ledger: ledgerRes.data ?? [],
@@ -202,6 +207,7 @@ const AdminUsers = () => {
             {CURRENCIES.map(cur => {
               const cfg = getCurrencyConfig(cur);
               const bal = userWallets[cur] ?? 0;
+              const walletDetail = userWalletDetails[cur];
               return (
                 <div key={cur} className={`border rounded-lg p-3 ${cfg.borderColor} ${cfg.bgColor}`}>
                   <div className="flex items-center gap-1.5 mb-1">
@@ -209,6 +215,18 @@ const AdminUsers = () => {
                     <span className={`text-[10px] font-bold ${cfg.color}`}>{cur}</span>
                   </div>
                   <div className="font-mono text-lg font-bold">{formatCurrencyAmount(bal, cur)}</div>
+                  {walletDetail && (
+                    <div className="text-[9px] text-muted-foreground mt-1 space-y-0.5">
+                      <div>Won: {formatCurrencyAmount(walletDetail.total_won ?? 0, cur)} · Spent: {formatCurrencyAmount(walletDetail.total_spent ?? 0, cur)}</div>
+                      <div>Bonus: {formatCurrencyAmount(walletDetail.total_bonus ?? 0, cur)}</div>
+                    </div>
+                  )}
+                  <div className="flex gap-1 mt-2">
+                    <button onClick={(e) => { e.stopPropagation(); setCreditDirection('IN'); setCreditCurrency(cur); setCreditModal({ userId: selectedUser.user_id, username: u.username ?? 'user' }); }}
+                      className="flex-1 text-[9px] font-bold py-1 rounded bg-pngwin-green/10 text-pngwin-green hover:bg-pngwin-green/20 transition-colors">Credit</button>
+                    <button onClick={(e) => { e.stopPropagation(); setCreditDirection('OUT'); setCreditCurrency(cur); setCreditModal({ userId: selectedUser.user_id, username: u.username ?? 'user' }); }}
+                      className="flex-1 text-[9px] font-bold py-1 rounded bg-pngwin-red/10 text-pngwin-red hover:bg-pngwin-red/20 transition-colors">Debit</button>
+                  </div>
                 </div>
               );
             })}

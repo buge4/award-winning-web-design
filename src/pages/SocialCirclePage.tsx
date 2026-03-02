@@ -40,11 +40,10 @@ const LEVEL_STYLES = [
 ];
 
 const TIERS = [
-  { name: 'Egg', min: 0, emoji: '🥚', unlock: 'Circle 1', pct: 20 },
-  { name: 'Hatchling', min: 3, emoji: '🐣', unlock: 'Circle 1-2', pct: 40 },
-  { name: 'Waddle', min: 10, emoji: '🐧', unlock: 'Circle 1-3', pct: 60 },
-  { name: 'Colony', min: 25, emoji: '👑', unlock: 'Circle 1-4', pct: 80 },
-  { name: 'Emperor', min: 50, emoji: '🏆', unlock: 'All 5 Circles', pct: 100 },
+  { name: 'Bronze', min: 0, emoji: '🥉', unlock: 'Circle 1', pct: 20 },
+  { name: 'Silver', min: 5, emoji: '🥈', unlock: 'Circle 1-2', pct: 40 },
+  { name: 'Gold', min: 15, emoji: '🥇', unlock: 'Circle 1-3', pct: 60 },
+  { name: 'Diamond', min: 50, emoji: '💎', unlock: 'All 5 Circles', pct: 100 },
 ];
 
 const SocialCirclePage = () => {
@@ -77,7 +76,7 @@ const SocialCirclePage = () => {
   const totalEarned = summary?.total_earned ?? 2340;
   const totalMissed = summary?.total_missed ?? MISSED_BONUSES.reduce((a: number, b: any) => a + b.missed, 0);
   const referralCode = summary?.referral_code ?? 'cryptoking';
-  const referralLink = `https://pngwin.io/ref/${referralCode}`;
+  const referralLink = `https://arcticauction.lovable.app/ref/${referralCode}`;
 
   const currentTierIdx = TIERS.reduce((acc, t, i) => totalMembers >= t.min ? i : acc, 0);
   const currentTier = TIERS[currentTierIdx];

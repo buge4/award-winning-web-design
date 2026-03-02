@@ -48,6 +48,55 @@ interface LedgerRow {
   allocations: { recipient_type: string; amount: number }[];
 }
 
+/* ───── Revenue Split Bar ───── */
+const SPLIT_COLORS = [
+  { key: 'split_prize_pct', label: 'Prize', color: '#10B981' },
+  { key: 'split_burn_pct', label: 'Burn', color: '#EF4444' },
+  { key: 'split_platform_pct', label: 'Platform', color: '#8B5CF6' },
+  { key: 'split_social_pct', label: 'Social', color: '#06B6D4' },
+  { key: 'split_jackpot_pct', label: 'Jackpot', color: '#F5C842' },
+];
+
+const RevenueSplitBar = () => {
+  const [splits, setSplits] = useState<Record<string, number> | null>(null);
+  useEffect(() => {
+    supabase.from('auction_configs').select('split_prize_pct, split_burn_pct, split_platform_pct, split_social_pct, split_jackpot_pct').limit(1).single()
+      .then(({ data }) => { if (data) setSplits(data as any); });
+  }, []);
+  if (!splits) return null;
+  return (
+    <div className="bg-card border border-border rounded-[14px] p-5">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-2 h-2 rounded-full bg-pngwin-green" />
+        <h2 className="font-display font-bold text-base">Revenue Split</h2>
+      </div>
+      <div className="flex h-8 rounded-lg overflow-hidden mb-3">
+        {SPLIT_COLORS.map(s => {
+          const pct = Number(splits[s.key] ?? 0);
+          if (pct <= 0) return null;
+          return (
+            <div key={s.key} className="flex items-center justify-center text-[10px] font-bold text-white transition-all" style={{ width: `${pct}%`, background: s.color }}>
+              {pct >= 8 ? `${s.label} ${pct}%` : `${pct}%`}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {SPLIT_COLORS.map(s => {
+          const pct = Number(splits[s.key] ?? 0);
+          return (
+            <div key={s.key} className="flex items-center gap-1.5 text-[11px]">
+              <div className="w-2.5 h-2.5 rounded-sm" style={{ background: s.color }} />
+              <span className="text-muted-foreground">{s.label}:</span>
+              <span className="font-mono font-bold">{pct}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 /* ───── component ───── */
 const AdminAccounting = () => {
   const navigate = useNavigate();
@@ -614,6 +663,9 @@ const AdminAccounting = () => {
           </>
         )}
       </div>
+
+      {/* ─── REVENUE SPLIT VISUALIZATION ─── */}
+      <RevenueSplitBar />
 
       {/* ─── SECTION 4: BURN TRACKER ─── */}
       <div>
