@@ -9,7 +9,7 @@ interface UplineUser {
   pct: string;
 }
 
-const LEVEL_PCTS = ['10%', '5%', '3%', '2%', '1%'];
+const LEVEL_PCTS = ['40%', '25%', '15%', '12%', '8%'];
 
 const UplineSection = ({ user }: { user: any }) => {
   const [upline, setUpline] = useState<UplineUser[]>([]);
