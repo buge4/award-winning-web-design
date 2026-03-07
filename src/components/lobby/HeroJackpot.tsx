@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import JackpotHistory from './JackpotHistory';
+import RoundCarousel from '@/components/jackpot/RoundCarousel';
 
 interface RolloverWeek {
   week: number;
@@ -88,7 +88,7 @@ const HeroJackpot = ({ prizePool, week, status, bidFee, endsAt, rolloverHistory 
 
         {/* Entry info */}
         <div className="font-mono font-semibold text-pngwin-green text-base mb-6">
-          Entry: {bidFee} PNGWIN/bid · Range: 00.01 — 99.99
+          Entry: {bidFee} PNGWIN/bid · Range: 00.001 — 99.999
         </div>
 
         {/* Countdown */}
@@ -109,23 +109,9 @@ const HeroJackpot = ({ prizePool, week, status, bidFee, endsAt, rolloverHistory 
           ))}
         </div>
 
-        {/* Rollover bar */}
-        <div className="flex justify-center gap-2 mb-7">
-          {rolloverHistory.map((w) => (
-            <div
-              key={w.week}
-              className={`bg-card border rounded-lg px-4 py-2 text-center min-w-[60px] ${
-                w.isCurrent
-                  ? 'border-primary bg-gradient-to-b from-[hsl(43_30%_10%)] to-card shadow-gold'
-                  : 'border-border'
-              }`}
-            >
-              <div className="text-xs font-semibold text-muted-foreground">W{w.week}</div>
-              <div className={`font-mono text-[11px] ${w.isCurrent ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
-                {w.amount >= 1000 ? `${Math.round(w.amount / 1000)}k` : w.amount}
-              </div>
-            </div>
-          ))}
+        {/* ═══════ ROUND CAROUSEL (replaces old rollover bar + Previous Draws) ═══════ */}
+        <div className="mb-7">
+          <RoundCarousel />
         </div>
 
         {/* Prize tiers */}
@@ -163,9 +149,6 @@ const HeroJackpot = ({ prizePool, week, status, bidFee, endsAt, rolloverHistory 
             </Link>
           </motion.div>
         </div>
-
-        {/* Previous Draws */}
-        <JackpotHistory />
       </div>
     </section>
   );
