@@ -395,6 +395,77 @@ const AdminUsers = () => {
             </div>
           )}
         </AnimatePresence>
+
+        {/* Ban/Suspend Modal */}
+        <AnimatePresence>
+          {banModal && (
+            <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setBanModal(null)}>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                className="bg-card border border-pngwin-red/30 rounded-2xl p-6 max-w-sm w-full" onClick={(e: any) => e.stopPropagation()}>
+                <h3 className="font-display font-bold text-lg mb-2">
+                  {banModal.action === 'ban' ? '🚫 Ban' : '⏸ Suspend'} @{banModal.username}
+                </h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Type <span className="font-mono font-bold text-pngwin-red">{banModal.action === 'ban' ? 'BAN' : 'SUSPEND'}</span> to confirm.
+                </p>
+                <input value={banConfirm} onChange={e => setBanConfirm(e.target.value)}
+                  placeholder={banModal.action === 'ban' ? 'BAN' : 'SUSPEND'}
+                  className="w-full px-3 py-2.5 bg-background border border-pngwin-red/30 rounded-lg text-sm font-mono focus:outline-none focus:border-pngwin-red mb-4" />
+                <div className="flex gap-2">
+                  <button onClick={() => { setBanModal(null); setBanConfirm(''); }}
+                    className="flex-1 py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg">Cancel</button>
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    onClick={handleBanSuspend} disabled={banSubmitting}
+                    className="flex-1 py-2 bg-pngwin-red text-white font-display font-bold text-xs rounded-lg disabled:opacity-60">
+                    {banSubmitting ? 'Processing...' : 'Confirm'}
+                  </motion.button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Free Bids Modal */}
+        <AnimatePresence>
+          {freeBidsModal && (
+            <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setFreeBidsModal(null)}>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                className="bg-card border border-border-active rounded-2xl p-6 max-w-sm w-full" onClick={(e: any) => e.stopPropagation()}>
+                <h3 className="font-display font-bold text-lg mb-4">🎁 Grant Free Bids to @{freeBidsModal.username}</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Auction</label>
+                    <select value={freeBidsInstanceId} onChange={e => setFreeBidsInstanceId(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-xs focus:outline-none focus:border-primary">
+                      <option value="">Select auction...</option>
+                      {activeAuctions.map((a: any) => (
+                        <option key={a.id} value={a.id}>{a.auction_configs?.name ?? a.id}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Number of Bids</label>
+                    <input type="number" value={freeBidsCount} onChange={e => setFreeBidsCount(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:border-primary" />
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={freeBidsHotOnly} onChange={e => setFreeBidsHotOnly(e.target.checked)}
+                      className="accent-primary" />
+                    <span className="text-xs">Hot mode only</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button onClick={() => setFreeBidsModal(null)} className="flex-1 py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg">Cancel</button>
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                      onClick={handleFreeBids} disabled={freeBidsSubmitting || !freeBidsInstanceId || !freeBidsCount}
+                      className="flex-1 py-2 gradient-gold text-primary-foreground font-display font-bold text-xs rounded-lg shadow-gold disabled:opacity-60">
+                      {freeBidsSubmitting ? 'Granting...' : 'Grant Free Bids'}
+                    </motion.button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
