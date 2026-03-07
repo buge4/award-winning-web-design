@@ -228,7 +228,7 @@ const AdminDashboard = () => {
 
       {/* Row 1: Platform Health */}
       <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 font-semibold">Platform Health</div>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
         {healthCards.map((kpi, i) => (
           <motion.div
             key={kpi.label}
@@ -354,6 +354,30 @@ const AdminDashboard = () => {
             {activity.length === 0 && <div className="text-center text-muted-foreground text-xs py-8">No activity yet</div>}
           </div>
         </div>
+      </div>
+
+      {/* Burn Accumulation Chart */}
+      <div className="bg-card border border-border rounded-xl p-5 mb-6">
+        <h2 className="font-display font-bold text-sm mb-4">🔥 Burn Accumulation</h2>
+        {burnData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={burnData}>
+              <defs>
+                <linearGradient id="gradBurn" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(0, 80%, 55%)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(0, 80%, 55%)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsla(215, 25%, 17%, 0.5)" />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'hsl(215, 20%, 55%)' }} />
+              <YAxis tick={{ fontSize: 10, fill: 'hsl(215, 20%, 55%)' }} />
+              <Tooltip contentStyle={{ background: 'hsl(220, 40%, 8%)', border: '1px solid hsl(215, 25%, 17%)', borderRadius: '8px', fontSize: 12 }} />
+              <Area type="monotone" dataKey="cumulative" stroke="hsl(0, 80%, 55%)" fill="url(#gradBurn)" strokeWidth={2} name="Cumulative Burn" />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">{loading ? 'Loading...' : 'No burn data yet'}</div>
+        )}
       </div>
 
       {/* Player Growth Chart */}
