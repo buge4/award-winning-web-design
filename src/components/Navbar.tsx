@@ -27,11 +27,12 @@ const Navbar = () => {
     if (!user) { setBalance(null); return; }
     supabase
       .from('wallets')
-      .select('balance')
+      .select('balance, currency')
       .eq('user_id', user.id)
       .eq('project_slug', 'auction')
-      .single()
-      .then(({ data }) => { if (data) setBalance(data.balance); });
+      .eq('currency', 'PNGWIN')
+      .limit(1)
+      .then(({ data }) => { if (data?.[0]) setBalance(data[0].balance); });
   }, [user]);
 
   return (
