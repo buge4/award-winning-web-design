@@ -171,6 +171,23 @@ const AdminDashboard = () => {
     setPlayerData(Object.entries(byDay).map(([day, count]) => { cumulative += count; return { day, signups: count, cumulative }; }));
   };
 
+  const loadBurnChart = async () => {
+    const { data } = await supabase
+      .from('ledger_events')
+      .select('gross_amount, created_at')
+      .eq('event_type', 'BURN')
+      .eq('direction', 'OUT')
+      .order('created_at');
+    if (!data || data.length === 0) return;
+    const byDay: { [key: string]: number } = {};
+    data.forEach((e: any) => {
+      const day = new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      byDay[day] = (byDay[day] ?? 0) + Number(e.gross_amount);
+    });
+    let cumulative = 0;
+    setBurnData(Object.entries(byDay).map(([day, amount]) => { cumulative += amount; return { day, burned: amount, cumulative }; }));
+  };
+
   const loadActivity = async () => {
     const { data } = await supabase
       .from('ledger_events')
@@ -196,6 +213,7 @@ const AdminDashboard = () => {
     { label: 'Total Burned', value: `${kpis.totalBurned.toLocaleString()}`, sub: 'PNGWIN destroyed', color: 'text-pngwin-red', icon: '🔥' },
     { label: 'Active Auctions', value: kpis.activeAuctions.toString(), sub: 'running now', color: 'text-pngwin-green', icon: '🎮' },
     { label: 'Jackpot Pool', value: `${kpis.jackpotPool.toLocaleString()}`, sub: 'PNGWIN', color: 'text-pngwin-orange', icon: '🎰' },
+    { label: 'Engine', value: kpis.engineStatus, sub: kpis.engineLatency !== null ? `${kpis.engineLatency}ms latency` : '—', color: kpis.engineStatus.includes('✅') ? 'text-pngwin-green' : 'text-pngwin-red', icon: '⚙️' },
   ];
 
   // KPI cards — Row 2: Auction Activity
