@@ -97,7 +97,6 @@ export const useHeroJackpot = () => {
 
   useEffect(() => {
     const fetch = async () => {
-      // Try jackpot type first
       const { data: instances } = await supabase
         .from('auction_instances')
         .select('*, auction_configs(*)')
@@ -105,26 +104,52 @@ export const useHeroJackpot = () => {
         .order('created_at', { ascending: false });
 
       if (instances?.length) {
-        const jackpot = instances.find((r: any) =>
+        // Prefer PNGWIN jackpot, then any jackpot
+        const pngwinJackpot = instances.find((r: any) =>
+          (r.auction_configs?.currency === 'PNGWIN') &&
+          (r.auction_configs?.auction_type === 'jackpot' ||
+           (r.auction_configs?.name ?? '').toLowerCase().includes('jackpot'))
+        );
+        const anyJackpot = pngwinJackpot || instances.find((r: any) =>
           r.auction_configs?.auction_type === 'jackpot' ||
           (r.auction_configs?.name ?? '').toLowerCase().includes('jackpot')
         );
 
-        if (jackpot) {
-          const config = (jackpot as any).auction_configs ?? {};
+        if (anyJackpot) {
+          const config = (anyJackpot as any).auction_configs ?? {};
+          const pool = Number(anyJackpot.prize_pool ?? 0);
           setData({
-            id: String(jackpot.id),
+            id: String(anyJackpot.id),
             title: config.name ?? 'Weekly Jackpot',
-            configId: String(config.id ?? jackpot.config_id),
+            configId: String(config.id ?? anyJackpot.config_id),
             auctionType: 'jackpot',
-            status: jackpot.status,
-            prizePool: Number(jackpot.prize_pool ?? 0),
-            totalBids: Number(jackpot.total_bids ?? 0),
-            uniqueBidders: Number(jackpot.unique_bidders ?? 0),
-            burnedAmount: Number(jackpot.burned_amount ?? 0),
+            status: anyJackpot.status,
+            prizePool: pool > 0 ? pool : 125000,
+            totalBids: Number(anyJackpot.total_bids ?? 0),
+            uniqueBidders: Number(anyJackpot.unique_bidders ?? 0),
+            burnedAmount: Number(anyJackpot.burned_amount ?? 0),
             bidFee: Number(config.bid_fee ?? 25),
-            scheduledEnd: jackpot.scheduled_end ?? null,
-            hotModeEndsAt: jackpot.hot_mode_ends_at ?? null,
+            scheduledEnd: anyJackpot.scheduled_end ?? null,
+            hotModeEndsAt: anyJackpot.hot_mode_ends_at ?? null,
+            totalBidsToHot: null,
+            visibility: 'open',
+            history: [],
+          });
+        } else {
+          // Fallback: no active jackpot, show static hero
+          setData({
+            id: '',
+            title: 'Weekly Jackpot',
+            configId: '',
+            auctionType: 'jackpot',
+            status: 'accumulating',
+            prizePool: 125000,
+            totalBids: 0,
+            uniqueBidders: 0,
+            burnedAmount: 0,
+            bidFee: 25,
+            scheduledEnd: null,
+            hotModeEndsAt: null,
             totalBidsToHot: null,
             visibility: 'open',
             history: [],
