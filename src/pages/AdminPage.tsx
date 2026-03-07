@@ -973,7 +973,7 @@ const UserManagement = () => {
       p_source_type: 'admin',
       p_source_id: null,
       p_description: creditReason || `Admin ${creditDirection === 'IN' ? 'credit' : 'debit'}`,
-      p_metadata: {},
+      p_metadata: { currency: 'PNGWIN' },
     });
     setSubmitting(false);
     if (error) {
