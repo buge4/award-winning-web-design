@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 import UplineSection from '@/components/admin/users/UplineSection';
 import ReferralSummary from '@/components/admin/users/ReferralSummary';
 import UserStatsCards from '@/components/admin/users/UserStatsCards';
@@ -11,6 +12,7 @@ import CreditModal from '@/components/admin/users/CreditModal';
 import { CURRENCIES, getCurrencyConfig, formatCurrencyAmount } from '@/lib/currencies';
 
 const AdminUsers = () => {
+  const { user } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -31,6 +33,19 @@ const AdminUsers = () => {
   const [sponsorModal, setSponsorModal] = useState<{ userId: string; username: string; currentSponsor: string } | null>(null);
   const [newSponsor, setNewSponsor] = useState('');
   const [sponsorSubmitting, setSponsorSubmitting] = useState(false);
+
+  // Ban/Suspend
+  const [banModal, setBanModal] = useState<{ userId: string; username: string; action: 'ban' | 'suspend' } | null>(null);
+  const [banConfirm, setBanConfirm] = useState('');
+  const [banSubmitting, setBanSubmitting] = useState(false);
+
+  // Free Bids
+  const [freeBidsModal, setFreeBidsModal] = useState<{ userId: string; username: string } | null>(null);
+  const [freeBidsInstanceId, setFreeBidsInstanceId] = useState('');
+  const [freeBidsCount, setFreeBidsCount] = useState('');
+  const [freeBidsHotOnly, setFreeBidsHotOnly] = useState(false);
+  const [freeBidsSubmitting, setFreeBidsSubmitting] = useState(false);
+  const [activeAuctions, setActiveAuctions] = useState<any[]>([]);
 
   const fetchUsers = () => {
     setLoading(true);
@@ -140,6 +155,42 @@ const AdminUsers = () => {
     setSponsorSubmitting(false);
   };
 
+  const handleBanSuspend = async () => {
+    if (!banModal) return;
+    const keyword = banModal.action === 'ban' ? 'BAN' : 'SUSPEND';
+    if (banConfirm !== keyword) { toast.error(`Type "${keyword}" to confirm`); return; }
+    setBanSubmitting(true);
+    const status = banModal.action === 'ban' ? 'banned' : 'suspended';
+    const { error } = await supabase.from('users').update({ status }).eq('id', banModal.userId);
+    if (error) toast.error(error.message);
+    else { toast.success(`User @${banModal.username} ${status}!`); setBanModal(null); setBanConfirm(''); fetchUsers(); }
+    setBanSubmitting(false);
+  };
+
+  const handleFreeBids = async () => {
+    if (!freeBidsModal || !freeBidsInstanceId || !freeBidsCount) return;
+    setFreeBidsSubmitting(true);
+    const { error } = await supabase.from('auction_free_bids').insert({
+      instance_id: freeBidsInstanceId,
+      user_id: freeBidsModal.userId,
+      granted_by: user?.id,
+      total_granted: parseInt(freeBidsCount),
+      used: 0,
+      remaining: parseInt(freeBidsCount),
+      hot_mode_only: freeBidsHotOnly,
+    });
+    if (error) toast.error(error.message);
+    else { toast.success(`${freeBidsCount} free bids granted!`); setFreeBidsModal(null); setFreeBidsCount(''); setFreeBidsInstanceId(''); }
+    setFreeBidsSubmitting(false);
+  };
+
+  const loadActiveAuctions = async () => {
+    const { data } = await supabase.from('auction_instances')
+      .select('id, auction_configs(name)')
+      .in('status', ['accumulating', 'hot_mode', 'grace_period']);
+    setActiveAuctions(data ?? []);
+  };
+
   const filtered = useMemo(() => {
     let list = users;
     if (search) {
@@ -185,11 +236,17 @@ const AdminUsers = () => {
                 <span className="text-[10px] text-muted-foreground">Since {new Date(u.created_at).toLocaleDateString()}</span>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button onClick={() => setCreditModal({ userId: selectedUser.user_id, username: u.username ?? 'user' })}
                 className="text-xs text-ice hover:text-ice/80 px-3 py-1.5 border border-ice/20 rounded-lg">💰 Credit/Debit</button>
               <button onClick={() => setSponsorModal({ userId: selectedUser.user_id, username: u.username ?? 'user', currentSponsor: sponsorUsername })}
                 className="text-xs text-pngwin-orange hover:text-pngwin-orange/80 px-3 py-1.5 border border-pngwin-orange/20 rounded-lg">🔄 Change Sponsor</button>
+              <button onClick={() => { setFreeBidsModal({ userId: selectedUser.user_id, username: u.username ?? 'user' }); loadActiveAuctions(); }}
+                className="text-xs text-pngwin-green hover:text-pngwin-green/80 px-3 py-1.5 border border-pngwin-green/20 rounded-lg">🎁 Free Bids</button>
+              <button onClick={() => setBanModal({ userId: selectedUser.user_id, username: u.username ?? 'user', action: 'suspend' })}
+                className="text-xs text-pngwin-purple hover:text-pngwin-purple/80 px-3 py-1.5 border border-pngwin-purple/20 rounded-lg">⏸ Suspend</button>
+              <button onClick={() => setBanModal({ userId: selectedUser.user_id, username: u.username ?? 'user', action: 'ban' })}
+                className="text-xs text-pngwin-red hover:text-pngwin-red/80 px-3 py-1.5 border border-pngwin-red/20 rounded-lg">🚫 Ban</button>
             </div>
           </div>
           {u.referral_code && (
@@ -331,6 +388,77 @@ const AdminUsers = () => {
                     <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleChangeSponsor} disabled={sponsorSubmitting || !newSponsor}
                       className="flex-1 py-2 gradient-gold text-primary-foreground font-display font-bold text-xs rounded-lg shadow-gold disabled:opacity-60">
                       {sponsorSubmitting ? 'Processing...' : 'Confirm Change'}
+                    </motion.button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Ban/Suspend Modal */}
+        <AnimatePresence>
+          {banModal && (
+            <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setBanModal(null)}>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                className="bg-card border border-pngwin-red/30 rounded-2xl p-6 max-w-sm w-full" onClick={(e: any) => e.stopPropagation()}>
+                <h3 className="font-display font-bold text-lg mb-2">
+                  {banModal.action === 'ban' ? '🚫 Ban' : '⏸ Suspend'} @{banModal.username}
+                </h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Type <span className="font-mono font-bold text-pngwin-red">{banModal.action === 'ban' ? 'BAN' : 'SUSPEND'}</span> to confirm.
+                </p>
+                <input value={banConfirm} onChange={e => setBanConfirm(e.target.value)}
+                  placeholder={banModal.action === 'ban' ? 'BAN' : 'SUSPEND'}
+                  className="w-full px-3 py-2.5 bg-background border border-pngwin-red/30 rounded-lg text-sm font-mono focus:outline-none focus:border-pngwin-red mb-4" />
+                <div className="flex gap-2">
+                  <button onClick={() => { setBanModal(null); setBanConfirm(''); }}
+                    className="flex-1 py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg">Cancel</button>
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    onClick={handleBanSuspend} disabled={banSubmitting}
+                    className="flex-1 py-2 bg-pngwin-red text-white font-display font-bold text-xs rounded-lg disabled:opacity-60">
+                    {banSubmitting ? 'Processing...' : 'Confirm'}
+                  </motion.button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Free Bids Modal */}
+        <AnimatePresence>
+          {freeBidsModal && (
+            <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setFreeBidsModal(null)}>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                className="bg-card border border-border-active rounded-2xl p-6 max-w-sm w-full" onClick={(e: any) => e.stopPropagation()}>
+                <h3 className="font-display font-bold text-lg mb-4">🎁 Grant Free Bids to @{freeBidsModal.username}</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Auction</label>
+                    <select value={freeBidsInstanceId} onChange={e => setFreeBidsInstanceId(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-xs focus:outline-none focus:border-primary">
+                      <option value="">Select auction...</option>
+                      {activeAuctions.map((a: any) => (
+                        <option key={a.id} value={a.id}>{a.auction_configs?.name ?? a.id}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Number of Bids</label>
+                    <input type="number" value={freeBidsCount} onChange={e => setFreeBidsCount(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:border-primary" />
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={freeBidsHotOnly} onChange={e => setFreeBidsHotOnly(e.target.checked)}
+                      className="accent-primary" />
+                    <span className="text-xs">Hot mode only</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button onClick={() => setFreeBidsModal(null)} className="flex-1 py-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg">Cancel</button>
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                      onClick={handleFreeBids} disabled={freeBidsSubmitting || !freeBidsInstanceId || !freeBidsCount}
+                      className="flex-1 py-2 gradient-gold text-primary-foreground font-display font-bold text-xs rounded-lg shadow-gold disabled:opacity-60">
+                      {freeBidsSubmitting ? 'Granting...' : 'Grant Free Bids'}
                     </motion.button>
                   </div>
                 </div>
