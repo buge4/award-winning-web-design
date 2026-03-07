@@ -16,8 +16,9 @@ import SpecialOfferBanner from '@/components/auction/SpecialOfferBanner';
 import BulkBuySelector from '@/components/auction/BulkBuySelector';
 import FundBreakdownResults from '@/components/auction/FundBreakdownResults';
 import RoundCarousel from '@/components/jackpot/RoundCarousel';
-import JackpotPrizeTiers from '@/components/jackpot/JackpotPrizeTiers';
+import JackpotTopBanner from '@/components/jackpot/JackpotTopBanner';
 import PreviousDrawResults from '@/components/jackpot/PreviousDrawResults';
+import CompactDrawResults from '@/components/jackpot/CompactDrawResults';
 import { toast } from 'sonner';
 import { useMyBids, usePlaceBid, useAuctionDetail, useAuctionLeaderboard } from '@/hooks/useAuctions';
 import { useAuctionResults } from '@/hooks/useAuctionResults';
@@ -49,6 +50,26 @@ const TimedCountdown = ({ scheduledEnd }: { scheduledEnd: string }) => {
   );
 };
 
+/** Revenue split bar — reused in both layouts */
+const SplitBar = () => (
+  <div className="flex items-center gap-3 mb-2">
+    <div className="flex gap-0.5 h-1.5 rounded-full overflow-hidden flex-1">
+      <div className="bg-pngwin-green" style={{ width: '55%' }} />
+      <div className="bg-pngwin-red" style={{ width: '15%' }} />
+      <div className="bg-muted-foreground" style={{ width: '15%' }} />
+      <div className="bg-ice" style={{ width: '5%' }} />
+      <div className="bg-primary" style={{ width: '10%' }} />
+    </div>
+    <div className="flex gap-2 text-[8px] shrink-0">
+      <span className="text-pngwin-green">Prize 55%</span>
+      <span className="text-pngwin-red">Burn 15%</span>
+      <span className="text-muted-foreground">Platf 15%</span>
+      <span className="text-ice">Social 5%</span>
+      <span className="text-primary">JP 10%</span>
+    </div>
+  </div>
+);
+
 const AuctionDetail = () => {
   const { id } = useParams();
   const { user } = useAuth();
@@ -64,7 +85,6 @@ const AuctionDetail = () => {
   const [countdown, setCountdown] = useState<string | null>(null);
   const [showWinnerReveal, setShowWinnerReveal] = useState(false);
 
-  // Extract configId for navigation
   const configId = (dbAuction as any)?.configId ?? '';
   const configName = auction?.title ?? 'Auction';
 
@@ -131,109 +151,228 @@ const AuctionDetail = () => {
 
   const winnerEntry = leaderboardEntries.length > 0 ? leaderboardEntries[leaderboardEntries.length - 1] : null;
 
+  // ═══════════════════════════════════════════════════
+  // JACKPOT LAYOUT
+  // ═══════════════════════════════════════════════════
+  if (isJackpot) {
+    return (
+      <div className="min-h-screen pt-16 pb-20 md:pb-0">
+        {/* Winner Reveal Overlay */}
+        <WinnerRevealOverlay
+          show={showWinnerReveal}
+          auction={auction}
+          winnerEntry={winnerEntry}
+          onDismiss={() => setShowWinnerReveal(false)}
+        />
+
+        <div className="container py-4 max-w-[1180px]">
+          <Link to="/" className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+            ← Back to Lobby
+          </Link>
+
+          {/* Round Carousel */}
+          <div className="mt-2 mb-1.5">
+            <RoundCarousel />
+          </div>
+
+          {/* Top Banner: Jackpot + Timer + Prize Tiers + Stats */}
+          <JackpotTopBanner
+            prizePool={auction.prizePool}
+            weekNumber={1}
+            scheduledEnd={auction.scheduledEnd}
+            bidCount={auction.bidCount}
+            minBid={minBid}
+            maxBid={maxBid}
+          />
+
+          {/* Split bar */}
+          <SplitBar />
+
+          {/* ═══════ SPECIAL OFFER ═══════ */}
+          {isActive && <SpecialOfferBanner instanceId={id ?? ''} />}
+
+          {/* ═══════ WINNER BANNER (resolved) ═══════ */}
+          {isResolved && winnerEntry && (
+            <WinnerBanner
+              username={winnerEntry.username}
+              bidAmount={Number(winnerEntry.bid_amount)}
+              prizeWon={Math.floor(auction.prizePool * 0.55)}
+              burnedAmount={Number(auction.burnedBids)}
+            />
+          )}
+
+          {/* 2-COLUMN MAIN */}
+          <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-3">
+            {/* LEFT: Bid input FIRST */}
+            <div className="space-y-2">
+              {/* 1. Place Your Bid */}
+              {isActive && (
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <FreeBidWallet instanceId={id ?? ''} currentPhase={auction.status} />
+                  <BidInput
+                    onSubmit={handleBid}
+                    bidCost={auction.bidCost}
+                    minValue={minBid}
+                    maxValue={maxBid}
+                    decimals={bidDecimals}
+                  />
+                </div>
+              )}
+
+              {/* 2. Early Bird */}
+              {isActive && <EarlyBirdBanner instanceId={id ?? ''} />}
+
+              {/* 3. Bid Bundles */}
+              {isActive && auction.bidCost > 0 && (
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <BulkBuySelector
+                    bidCost={auction.bidCost}
+                    onSelect={(totalBids, paidBids) => setSelectedBundle({ totalBids, paidBids })}
+                  />
+                </div>
+              )}
+
+              {/* 4. Stats — 🔒 for blind */}
+              <div className="grid grid-cols-4 gap-1.5">
+                <KpiCard label="Total Bids" value={auction.bidCount} color="green" />
+                <KpiCard label="Unique" value={isBlind && !isResolved ? '🔒' : auction.uniqueBids} color="ice" />
+                <KpiCard label="Burned" value={isBlind && !isResolved ? '🔒' : Number(auction.burnedBids.toFixed(0))} color="red" />
+                <KpiCard label="Status" value={isBlind && !isResolved ? '🔒' : 'Open'} color="purple" />
+              </div>
+
+              {/* 5. Social Circle */}
+              <SocialCircleWidget context="auction" instanceId={id} />
+
+              {/* End conditions (timed) */}
+              {isActive && auction.scheduledEnd && (
+                <div className="bg-card border border-border rounded-lg p-3">
+                  <TimedCountdown scheduledEnd={auction.scheduledEnd} />
+                </div>
+              )}
+
+              {/* Resolved state click */}
+              {auction.status === 'resolved' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-gold-subtle border border-gold rounded-lg p-5 text-center cursor-pointer"
+                  onClick={() => setShowWinnerReveal(true)}
+                >
+                  <div className="text-2xl mb-2">🏆</div>
+                  <div className="font-display font-bold text-primary">Auction Resolved</div>
+                  <div className="text-[10px] text-ice mt-2">Click to replay reveal ✨</div>
+                </motion.div>
+              )}
+            </div>
+
+            {/* RIGHT: My bids + Blind notice + Past draws */}
+            <div className="space-y-2">
+              {/* My Bids */}
+              <div className="bg-card border border-border rounded-lg">
+                <div className="px-4 py-2.5 border-b border-border font-display font-bold text-xs">
+                  My Bids {bids.length > 0 && `(${bids.length})`}
+                </div>
+                {bids.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-muted-foreground text-sm">
+                    {user ? 'No bids placed yet. Be the first!' : 'Sign in to place bids'}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 px-4 py-3">
+                    {bids.slice(0, 10).map((bid) => (
+                      <motion.span
+                        key={bid.id}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="font-mono text-xs font-semibold px-2.5 py-1 rounded border text-pngwin-green border-pngwin-green/20 bg-pngwin-green/5"
+                      >
+                        {bid.value}
+                      </motion.span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Blind Notice */}
+              {isBlind && !isResolved && (
+                <div className="bg-pngwin-purple/4 border border-pngwin-purple/12 rounded-lg p-3">
+                  <h4 className="font-display font-bold text-xs text-pngwin-purple mb-1">🔒 Blind Auction</h4>
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    Leaderboard is hidden until the auction resolves. Only you can see your bids above.
+                  </p>
+                  <div className="flex gap-3">
+                    <div className="text-center">
+                      <div className="font-mono text-xl font-bold text-pngwin-green">{auction.bidCount}</div>
+                      <div className="text-[9px] text-muted-foreground">Total Bids</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-mono text-xl font-bold text-pngwin-green">{bids.length}</div>
+                      <div className="text-[9px] text-muted-foreground">Your Bids</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Previous Draw W2 (expanded) */}
+              <PreviousDrawResults />
+
+              {/* Previous Draw W1 (compact chips) */}
+              <CompactDrawResults />
+            </div>
+          </div>
+
+          {/* ═══════ FUND BREAKDOWN (resolved only) ═══════ */}
+          {isResolved && (
+            <div className="mt-6">
+              <FundBreakdownResults
+                instanceId={id ?? ''}
+                totalCollected={auction.totalBidFees ?? auction.prizePool}
+                prizePool={auction.prizePool}
+              />
+            </div>
+          )}
+
+          {/* ═══════ FULL RESULTS (resolved only) ═══════ */}
+          {isResolved && resultsData && (
+            <div className="mt-6">
+              <AuctionResults
+                auctionTitle={resultsData.auctionTitle}
+                resolvedDate={resultsData.resolvedDate}
+                totalPool={resultsData.totalPool}
+                totalCollected={resultsData.totalCollected}
+                winners={resultsData.winners}
+                allBids={resultsData.allBids}
+                accounting={resultsData.accounting}
+                userPerformance={resultsData.userPerformance}
+              />
+            </div>
+          )}
+
+          {/* ═══════ PAST AUCTION HISTORY ═══════ */}
+          {configId && id && (
+            <PastAuctionHistory configId={configId} configName={configName} currentInstanceId={id} />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════
+  // STANDARD AUCTION LAYOUT (non-jackpot)
+  // ═══════════════════════════════════════════════════
   return (
     <div className="min-h-screen pt-16 pb-20 md:pb-0">
       {/* Winner Reveal Overlay */}
-      <AnimatePresence>
-        {showWinnerReveal && auction.status === 'resolved' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md"
-            onClick={() => setShowWinnerReveal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ type: 'spring', damping: 15 }}
-              className="text-center p-10 max-w-lg w-full"
-            >
-              {auction.resolutionMethod === 'rng_exact' && auction.drawnNumbers && auction.drawnNumbers.length > 0 ? (
-                <>
-                  <div className="text-xs text-muted-foreground uppercase tracking-[4px] mb-4">🎰 Jackpot Draw</div>
-                  <div className="flex justify-center gap-3 mb-6">
-                    {auction.drawnNumbers.map((num, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ rotateX: 90, opacity: 0 }}
-                        animate={{ rotateX: 0, opacity: 1 }}
-                        transition={{ delay: i * 0.6, duration: 0.5, type: 'spring' }}
-                        className="w-16 h-20 bg-card border-2 border-gold rounded-xl flex items-center justify-center shadow-gold"
-                      >
-                        <span className="font-mono text-3xl font-bold text-primary">{num.toFixed(2)}</span>
-                      </motion.div>
-                    ))}
-                  </div>
-                  {winnerEntry ? (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: auction.drawnNumbers.length * 0.6 + 0.5 }}>
-                      <div className="text-2xl mb-2">🏆</div>
-                      <div className="font-display text-2xl font-bold text-primary">{winnerEntry.username}</div>
-                      <div className="font-mono text-sm text-muted-foreground mt-1">Matched: {Number(winnerEntry.bid_amount).toFixed(2)}</div>
-                      <div className="font-mono text-3xl font-bold text-primary mt-3">{auction.prizePool.toLocaleString()} PNGWIN</div>
-                    </motion.div>
-                  ) : (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: auction.drawnNumbers.length * 0.6 + 0.5 }}>
-                      <div className="text-2xl mb-2">🔄</div>
-                      <div className="font-display text-xl font-bold text-pngwin-orange">No exact match — Rollover!</div>
-                      <div className="text-xs text-muted-foreground mt-2">Prize pool carries to next week</div>
-                    </motion.div>
-                  )}
-                </>
-              ) : auction.resolutionMethod === 'rng_closest' && auction.drawnNumbers && auction.drawnNumbers.length > 0 ? (
-                <>
-                  <div className="text-xs text-muted-foreground uppercase tracking-[4px] mb-4">🎯 RNG Draw</div>
-                  <motion.div
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.3, type: 'spring' }}
-                    className="w-24 h-28 mx-auto bg-card border-2 border-pngwin-purple rounded-xl flex flex-col items-center justify-center mb-6"
-                  >
-                    <div className="text-[9px] text-muted-foreground mb-1">DRAWN</div>
-                    <span className="font-mono text-4xl font-bold text-pngwin-purple">{auction.drawnNumbers[0].toFixed(2)}</span>
-                  </motion.div>
-                  {winnerEntry && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}>
-                      <div className="text-2xl mb-2">🏆</div>
-                      <div className="font-display text-2xl font-bold text-primary">{winnerEntry.username}</div>
-                      <div className="font-mono text-sm text-muted-foreground mt-1">
-                        Bid: {Number(winnerEntry.bid_amount).toFixed(2)} — Distance: {auction.winningDistance?.toFixed(2) ?? '0.00'}
-                      </div>
-                      <div className="font-mono text-3xl font-bold text-primary mt-3">{auction.prizePool.toLocaleString()} PNGWIN</div>
-                    </motion.div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <motion.div animate={{ rotate: [0, -10, 10, -10, 10, 0] }} transition={{ duration: 0.6, delay: 0.3 }} className="text-7xl mb-4">🏆</motion.div>
-                  {winnerEntry && (
-                    <>
-                      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }} className="font-display text-4xl font-bold text-primary mb-2">Winner!</motion.div>
-                      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.7 }} className="font-display text-2xl text-foreground mb-1">{winnerEntry.username}</motion.div>
-                      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.9 }} className="font-mono text-lg text-muted-foreground">Winning bid: {Number(winnerEntry.bid_amount).toFixed(2)}</motion.div>
-                      <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 1.1 }} className="font-mono text-3xl font-bold text-primary mt-4">{auction.prizePool.toLocaleString()} PNGWIN</motion.div>
-                    </>
-                  )}
-                </>
-              )}
-              <div className="text-xs text-muted-foreground mt-4">Click to dismiss</div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <WinnerRevealOverlay
+        show={showWinnerReveal}
+        auction={auction}
+        winnerEntry={winnerEntry}
+        onDismiss={() => setShowWinnerReveal(false)}
+      />
 
       <div className="container py-6">
         <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
           ← Back to Lobby
         </Link>
-
-        {/* ═══════ ROUND CAROUSEL (jackpot only) ═══════ */}
-        {isJackpot && (
-          <div className="mb-4">
-            <RoundCarousel />
-          </div>
-        )}
 
         {/* ═══════ SPECIAL OFFER FLOATING BANNER ═══════ */}
         {isActive && <SpecialOfferBanner instanceId={id ?? ''} />}
@@ -289,9 +428,6 @@ const AuctionDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left column */}
           <div className="lg:col-span-1 space-y-5">
-            {/* Jackpot Prize Tiers */}
-            {isJackpot && <JackpotPrizeTiers prizePool={auction.prizePool} />}
-
             {/* Prize Pool */}
             <motion.div
               className={`bg-card border rounded-lg p-6 text-center ${
@@ -560,7 +696,7 @@ const AuctionDetail = () => {
             </div>
 
             {/* Leaderboard */}
-            {!isJackpot && shouldShowLeaderboard && (
+            {shouldShowLeaderboard && (
               <div className="bg-card border border-border rounded-lg">
                 <div className="px-5 py-3 border-b border-border flex justify-between items-center">
                   <span className="font-display font-bold text-sm">🏆 Leaderboard</span>
@@ -638,9 +774,6 @@ const AuctionDetail = () => {
                 </div>
               </div>
             )}
-
-            {/* Previous Draw Results (jackpot only) */}
-            {isJackpot && <PreviousDrawResults />}
           </div>
         </div>
 
@@ -679,5 +812,102 @@ const AuctionDetail = () => {
     </div>
   );
 };
+
+/** Winner reveal overlay — extracted to keep main component cleaner */
+const WinnerRevealOverlay = ({ show, auction, winnerEntry, onDismiss }: {
+  show: boolean;
+  auction: any;
+  winnerEntry: any;
+  onDismiss: () => void;
+}) => (
+  <AnimatePresence>
+    {show && auction.status === 'resolved' && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md"
+        onClick={onDismiss}
+      >
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.8, opacity: 0 }}
+          transition={{ type: 'spring', damping: 15 }}
+          className="text-center p-10 max-w-lg w-full"
+        >
+          {auction.resolutionMethod === 'rng_exact' && auction.drawnNumbers && auction.drawnNumbers.length > 0 ? (
+            <>
+              <div className="text-xs text-muted-foreground uppercase tracking-[4px] mb-4">🎰 Jackpot Draw</div>
+              <div className="flex justify-center gap-3 mb-6">
+                {auction.drawnNumbers.map((num: number, i: number) => (
+                  <motion.div
+                    key={i}
+                    initial={{ rotateX: 90, opacity: 0 }}
+                    animate={{ rotateX: 0, opacity: 1 }}
+                    transition={{ delay: i * 0.6, duration: 0.5, type: 'spring' }}
+                    className="w-16 h-20 bg-card border-2 border-gold rounded-xl flex items-center justify-center shadow-gold"
+                  >
+                    <span className="font-mono text-3xl font-bold text-primary">{num.toFixed(2)}</span>
+                  </motion.div>
+                ))}
+              </div>
+              {winnerEntry ? (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: auction.drawnNumbers.length * 0.6 + 0.5 }}>
+                  <div className="text-2xl mb-2">🏆</div>
+                  <div className="font-display text-2xl font-bold text-primary">{winnerEntry.username}</div>
+                  <div className="font-mono text-sm text-muted-foreground mt-1">Matched: {Number(winnerEntry.bid_amount).toFixed(2)}</div>
+                  <div className="font-mono text-3xl font-bold text-primary mt-3">{auction.prizePool.toLocaleString()} PNGWIN</div>
+                </motion.div>
+              ) : (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: auction.drawnNumbers.length * 0.6 + 0.5 }}>
+                  <div className="text-2xl mb-2">🔄</div>
+                  <div className="font-display text-xl font-bold text-pngwin-orange">No exact match — Rollover!</div>
+                  <div className="text-xs text-muted-foreground mt-2">Prize pool carries to next week</div>
+                </motion.div>
+              )}
+            </>
+          ) : auction.resolutionMethod === 'rng_closest' && auction.drawnNumbers && auction.drawnNumbers.length > 0 ? (
+            <>
+              <div className="text-xs text-muted-foreground uppercase tracking-[4px] mb-4">🎯 RNG Draw</div>
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.3, type: 'spring' }}
+                className="w-24 h-28 mx-auto bg-card border-2 border-pngwin-purple rounded-xl flex flex-col items-center justify-center mb-6"
+              >
+                <div className="text-[9px] text-muted-foreground mb-1">DRAWN</div>
+                <span className="font-mono text-4xl font-bold text-pngwin-purple">{auction.drawnNumbers[0].toFixed(2)}</span>
+              </motion.div>
+              {winnerEntry && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}>
+                  <div className="text-2xl mb-2">🏆</div>
+                  <div className="font-display text-2xl font-bold text-primary">{winnerEntry.username}</div>
+                  <div className="font-mono text-sm text-muted-foreground mt-1">
+                    Bid: {Number(winnerEntry.bid_amount).toFixed(2)} — Distance: {auction.winningDistance?.toFixed(2) ?? '0.00'}
+                  </div>
+                  <div className="font-mono text-3xl font-bold text-primary mt-3">{auction.prizePool.toLocaleString()} PNGWIN</div>
+                </motion.div>
+              )}
+            </>
+          ) : (
+            <>
+              <motion.div animate={{ rotate: [0, -10, 10, -10, 10, 0] }} transition={{ duration: 0.6, delay: 0.3 }} className="text-7xl mb-4">🏆</motion.div>
+              {winnerEntry && (
+                <>
+                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }} className="font-display text-4xl font-bold text-primary mb-2">Winner!</motion.div>
+                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.7 }} className="font-display text-2xl text-foreground mb-1">{winnerEntry.username}</motion.div>
+                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.9 }} className="font-mono text-lg text-muted-foreground">Winning bid: {Number(winnerEntry.bid_amount).toFixed(2)}</motion.div>
+                  <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 1.1 }} className="font-mono text-3xl font-bold text-primary mt-4">{auction.prizePool.toLocaleString()} PNGWIN</motion.div>
+                </>
+              )}
+            </>
+          )}
+          <div className="text-xs text-muted-foreground mt-4">Click to dismiss</div>
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 
 export default AuctionDetail;
