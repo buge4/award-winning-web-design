@@ -89,6 +89,7 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     winningDistance: row.winning_distance != null ? Number(row.winning_distance) : undefined,
     totalBidsToClose: config.total_bids_to_close ? Number(config.total_bids_to_close) : undefined,
     scheduledEnd: row.scheduled_end ? String(row.scheduled_end) : undefined,
+    prizeType: config.prize_type ? String(config.prize_type) : undefined,
   };
 };
 
