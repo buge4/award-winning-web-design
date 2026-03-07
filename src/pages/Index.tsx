@@ -119,9 +119,9 @@ const Index = () => {
             }
 
             if (data) {
-              const dynamicBadges = [...cfg.badges];
+              const dynamicBadges: Array<{ label: string; variant: 'daily' | 'live' | 'blind' | 'open' | 'accumulating' | 'hot' }> = [...cfg.badges];
               if (data.status === 'hot_mode') {
-                dynamicBadges.push({ label: 'HOT 🔥', variant: 'hot' as const });
+                dynamicBadges.push({ label: 'HOT 🔥', variant: 'hot' });
               }
 
               return (
