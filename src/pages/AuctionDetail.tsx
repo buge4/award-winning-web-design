@@ -93,8 +93,10 @@ const AuctionDetail = () => {
   const isJackpot = auction.type === 'jackpot';
   const isBlind = auction.visibility === 'blind' || auction.type === 'blind_count' || auction.type === 'blind_timed';
   const minBid = auction.minBidValue ?? 0.01;
-  const maxBid = auction.maxBidValue ?? 99.99;
+  const maxBid = auction.maxBidValue ?? (isJackpot ? 99.999 : 99.99);
+  const bidDecimals = isJackpot ? 3 : 2;
   const isActive = ['accumulating', 'hot_mode', 'grace_period'].includes(auction.status);
+  const [selectedBundle, setSelectedBundle] = useState<{ totalBids: number; paidBids: number }>({ totalBids: 1, paidBids: 1 });
 
   const handleBid = async (value: string) => {
     if (!user) { toast.error('Sign in to place a bid'); return; }
