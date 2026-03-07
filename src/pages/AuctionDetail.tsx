@@ -289,6 +289,9 @@ const AuctionDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left column */}
           <div className="lg:col-span-1 space-y-5">
+            {/* Jackpot Prize Tiers */}
+            {isJackpot && <JackpotPrizeTiers prizePool={auction.prizePool} />}
+
             {/* Prize Pool */}
             <motion.div
               className={`bg-card border rounded-lg p-6 text-center ${
