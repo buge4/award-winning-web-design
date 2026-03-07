@@ -63,12 +63,8 @@ const Navbar = () => {
             <Link to="/wallet" className="flex items-center gap-2 bg-gold-subtle border border-gold rounded-full px-3.5 py-1.5 cursor-pointer hover:bg-gold/10 transition-colors">
               <span className="text-primary font-mono text-xs">◆ {balance !== null ? balance.toLocaleString() : '—'}</span>
             </Link>
-            <div className="flex items-center gap-2 cursor-pointer group" onClick={handleSignOut}>
-              <div className="w-8 h-8 rounded-full gradient-ice flex items-center justify-center text-xs font-bold text-background">
-                {initials}
-              </div>
-              <span className="hidden sm:block text-sm text-muted-foreground group-hover:text-foreground transition-colors">@{username}</span>
-            </div>
+            <NotificationBell />
+            <ProfileDropdown />
           </>
         ) : (
           <Link
