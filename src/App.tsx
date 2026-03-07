@@ -49,6 +49,9 @@ import AdminAccounting from "./pages/admin/AdminAccounting";
 import AdminAirdrops from "./pages/admin/AdminAirdrops";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminBadges from "./pages/admin/AdminBadges";
+import AdminGames from "./pages/admin/AdminGames";
+import AdminGameTracker from "./pages/admin/AdminGameTracker";
+import AdminInstanceDetail from "./pages/admin/AdminInstanceDetail";
 
 const queryClient = new QueryClient();
 
