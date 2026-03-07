@@ -224,9 +224,16 @@ const AuctionDetail = () => {
       </AnimatePresence>
 
       <div className="container py-6">
-        <Link to="/auctions" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
-          ← Back to Auctions
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
+          ← Back to Lobby
         </Link>
+
+        {/* ═══════ ROUND CAROUSEL (jackpot only) ═══════ */}
+        {isJackpot && (
+          <div className="mb-4">
+            <RoundCarousel />
+          </div>
+        )}
 
         {/* ═══════ SPECIAL OFFER FLOATING BANNER ═══════ */}
         {isActive && <SpecialOfferBanner instanceId={id ?? ''} />}
