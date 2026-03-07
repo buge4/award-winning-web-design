@@ -112,7 +112,7 @@ export const useHeroJackpot = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
+    const loadData = async () => {
       let instances: any[] | null = null;
       try {
         const res = await fetch('http://89.167.102.46:3000/api/dashboard/auctions');
