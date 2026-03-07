@@ -32,6 +32,19 @@ const AdminUsers = () => {
   const [newSponsor, setNewSponsor] = useState('');
   const [sponsorSubmitting, setSponsorSubmitting] = useState(false);
 
+  // Ban/Suspend
+  const [banModal, setBanModal] = useState<{ userId: string; username: string; action: 'ban' | 'suspend' } | null>(null);
+  const [banConfirm, setBanConfirm] = useState('');
+  const [banSubmitting, setBanSubmitting] = useState(false);
+
+  // Free Bids
+  const [freeBidsModal, setFreeBidsModal] = useState<{ userId: string; username: string } | null>(null);
+  const [freeBidsInstanceId, setFreeBidsInstanceId] = useState('');
+  const [freeBidsCount, setFreeBidsCount] = useState('');
+  const [freeBidsHotOnly, setFreeBidsHotOnly] = useState(false);
+  const [freeBidsSubmitting, setFreeBidsSubmitting] = useState(false);
+  const [activeAuctions, setActiveAuctions] = useState<any[]>([]);
+
   const fetchUsers = () => {
     setLoading(true);
     Promise.all([
