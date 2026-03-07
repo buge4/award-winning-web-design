@@ -117,7 +117,7 @@ const AdminAccounting = () => {
   const [ledgerLoading, setLedgerLoading] = useState(true);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerTotal, setLedgerTotal] = useState(0);
-  const [ledgerFilter, setLedgerFilter] = useState({ type: '', user: '', currency: '' });
+  const [ledgerFilter, setLedgerFilter] = useState({ type: '', user: '', currency: '', direction: '', dateFrom: '', dateTo: '' });
   const LEDGER_PAGE_SIZE = 50;
 
   /* --- Section 4: Burn tracker --- */
@@ -241,6 +241,9 @@ const AdminAccounting = () => {
     if (ledgerFilter.type) query = query.eq('event_type', ledgerFilter.type);
     if (ledgerFilter.user) query = query.ilike('users.username', `%${ledgerFilter.user}%`);
     if (ledgerFilter.currency) query = query.eq('currency', ledgerFilter.currency);
+    if (ledgerFilter.direction) query = query.eq('direction', ledgerFilter.direction);
+    if (ledgerFilter.dateFrom) query = query.gte('created_at', ledgerFilter.dateFrom);
+    if (ledgerFilter.dateTo) query = query.lte('created_at', ledgerFilter.dateTo + 'T23:59:59');
 
     const { data, count } = await query;
     setLedgerTotal(count ?? 0);
