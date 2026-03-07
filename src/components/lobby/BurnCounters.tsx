@@ -14,34 +14,33 @@ const BurnCounters = () => {
   useEffect(() => {
     const fetchBurns = async () => {
       try {
-        // Query burn allocations from ledger_allocations (not ledger_events.amount which doesn't exist)
-        const { data } = await supabase
-          .from('ledger_allocations')
-          .select('amount, currency')
-          .eq('recipient_type', 'burn');
-
-        if (data && data.length > 0) {
-          const byType: Record<string, number> = { PNGWIN: 0, TON: 0, SOL: 0 };
-          data.forEach((row: any) => {
-            const cur = row.currency ?? 'PNGWIN';
-            byType[cur] = (byType[cur] ?? 0) + Number(row.amount ?? 0);
-          });
-          setTotals({ pngwin: byType.PNGWIN, ton: byType.TON ?? 0, sol: byType.SOL ?? 0 });
-        }
-      } catch {
-        // Fallback — query from auction_instances burned_amount
-        try {
-          const { data: instances } = await supabase
-            .from('auction_instances')
-            .select('burned_amount')
-            .gt('burned_amount', 0);
-          
-          if (instances && instances.length > 0) {
-            const total = instances.reduce((s: number, r: any) => s + Number(r.burned_amount ?? 0), 0);
-            setTotals({ pngwin: total, ton: 0, sol: 0 });
+        // Try fast API first
+        const res = await fetch('http://89.167.102.46:3000/api/dashboard/burns');
+        if (res.ok) {
+          const json = await res.json();
+          if (json) {
+            setTotals({
+              pngwin: Number(json.PNGWIN ?? json.pngwin ?? 0),
+              ton: Number(json.TON ?? json.ton ?? 0),
+              sol: Number(json.SOL ?? json.sol ?? 0),
+            });
+            return;
           }
-        } catch { /* keep zeros */ }
-      }
+        }
+      } catch { /* fallback below */ }
+
+      // Fallback — query from auction_instances burned_amount
+      try {
+        const { data: instances } = await supabase
+          .from('auction_instances')
+          .select('burned_amount, burn_total')
+          .gt('burned_amount', 0);
+        
+        if (instances && instances.length > 0) {
+          const total = instances.reduce((s: number, r: any) => s + Number(r.burn_total ?? r.burned_amount ?? 0), 0);
+          setTotals({ pngwin: total, ton: 0, sol: 0 });
+        }
+      } catch { /* keep zeros */ }
     };
     fetchBurns();
   }, []);
