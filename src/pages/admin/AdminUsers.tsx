@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 import UplineSection from '@/components/admin/users/UplineSection';
 import ReferralSummary from '@/components/admin/users/ReferralSummary';
 import UserStatsCards from '@/components/admin/users/UserStatsCards';
@@ -11,6 +12,7 @@ import CreditModal from '@/components/admin/users/CreditModal';
 import { CURRENCIES, getCurrencyConfig, formatCurrencyAmount } from '@/lib/currencies';
 
 const AdminUsers = () => {
+  const { user } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
