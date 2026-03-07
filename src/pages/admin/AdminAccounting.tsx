@@ -117,7 +117,7 @@ const AdminAccounting = () => {
   const [ledgerLoading, setLedgerLoading] = useState(true);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerTotal, setLedgerTotal] = useState(0);
-  const [ledgerFilter, setLedgerFilter] = useState({ type: '', user: '', currency: '' });
+  const [ledgerFilter, setLedgerFilter] = useState({ type: '', user: '', currency: '', direction: '', dateFrom: '', dateTo: '' });
   const LEDGER_PAGE_SIZE = 50;
 
   /* --- Section 4: Burn tracker --- */
@@ -241,6 +241,9 @@ const AdminAccounting = () => {
     if (ledgerFilter.type) query = query.eq('event_type', ledgerFilter.type);
     if (ledgerFilter.user) query = query.ilike('users.username', `%${ledgerFilter.user}%`);
     if (ledgerFilter.currency) query = query.eq('currency', ledgerFilter.currency);
+    if (ledgerFilter.direction) query = query.eq('direction', ledgerFilter.direction);
+    if (ledgerFilter.dateFrom) query = query.gte('created_at', ledgerFilter.dateFrom);
+    if (ledgerFilter.dateTo) query = query.lte('created_at', ledgerFilter.dateTo + 'T23:59:59');
 
     const { data, count } = await query;
     setLedgerTotal(count ?? 0);
@@ -509,12 +512,12 @@ const AdminAccounting = () => {
       {/* ─── SECTION 3: TRANSACTION LEDGER ─── */}
       <div className="bg-card border border-border rounded-[14px] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-border">
+        <div className="flex flex-wrap items-center justify-between p-5 border-b border-border gap-3">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-pngwin-purple" />
             <h2 className="font-display font-bold text-base">Transaction Ledger</h2>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             <Select value={ledgerFilter.type || 'all'} onValueChange={v => { setLedgerFilter(f => ({ ...f, type: v === 'all' ? '' : v })); setLedgerPage(1); }}>
               <SelectTrigger className="w-[140px] h-8 text-[11px] bg-background border-border">
                 <SelectValue placeholder="All Types" />
@@ -524,6 +527,16 @@ const AdminAccounting = () => {
                 {['BID_FEE', 'AUCTION_BID', 'AUCTION_WIN', 'PRIZE_PAYOUT', 'CREDIT', 'DEBIT', 'SIGNUP_BONUS', 'SOCIAL_BONUS', 'BURN', 'JACKPOT_FEED', 'PLATFORM', 'AIRDROP', 'ADMIN_CREDIT'].map(t => (
                   <SelectItem key={t} value={t}>{t}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={ledgerFilter.direction || 'all'} onValueChange={v => { setLedgerFilter(f => ({ ...f, direction: v === 'all' ? '' : v })); setLedgerPage(1); }}>
+              <SelectTrigger className="w-[90px] h-8 text-[11px] bg-background border-border">
+                <SelectValue placeholder="Dir" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="IN">IN</SelectItem>
+                <SelectItem value="OUT">OUT</SelectItem>
               </SelectContent>
             </Select>
             <Select value={ledgerFilter.currency || 'all'} onValueChange={v => { setLedgerFilter(f => ({ ...f, currency: v === 'all' ? '' : v })); setLedgerPage(1); }}>
@@ -541,8 +554,24 @@ const AdminAccounting = () => {
               placeholder="Search user..."
               value={ledgerFilter.user}
               onChange={e => { setLedgerFilter(f => ({ ...f, user: e.target.value })); setLedgerPage(1); }}
-              className="w-[150px] h-8 text-[11px] bg-background"
+              className="w-[130px] h-8 text-[11px] bg-background"
             />
+            <input type="date" value={ledgerFilter.dateFrom}
+              onChange={e => { setLedgerFilter(f => ({ ...f, dateFrom: e.target.value })); setLedgerPage(1); }}
+              className="h-8 px-2 text-[11px] bg-background border border-border rounded-md focus:outline-none focus:border-primary" />
+            <input type="date" value={ledgerFilter.dateTo}
+              onChange={e => { setLedgerFilter(f => ({ ...f, dateTo: e.target.value })); setLedgerPage(1); }}
+              className="h-8 px-2 text-[11px] bg-background border border-border rounded-md focus:outline-none focus:border-primary" />
+            <button onClick={() => {
+              const csv = ['Timestamp,Type,User,Currency,Direction,Amount\n',
+                ...ledger.map(r => `${r.created_at},${r.event_type},${r.username},${r.currency},${r.direction},${r.gross_amount}`)
+              ].join('\n');
+              const blob = new Blob([csv], { type: 'text/csv' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url; a.download = 'ledger_export.csv'; a.click();
+            }} className="h-8 px-3 text-[10px] font-semibold bg-secondary border border-border rounded-md text-muted-foreground hover:text-foreground">
+              📥 CSV
+            </button>
           </div>
         </div>
 

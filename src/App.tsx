@@ -49,6 +49,9 @@ import AdminAccounting from "./pages/admin/AdminAccounting";
 import AdminAirdrops from "./pages/admin/AdminAirdrops";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminBadges from "./pages/admin/AdminBadges";
+import AdminGames from "./pages/admin/AdminGames";
+import AdminGameTracker from "./pages/admin/AdminGameTracker";
+import AdminInstanceDetail from "./pages/admin/AdminInstanceDetail";
 
 const queryClient = new QueryClient();
 
@@ -94,6 +97,9 @@ const App = () => (
             {/* Admin routes */}
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
+              <Route path="games" element={<AdminGames />} />
+              <Route path="games/:configId" element={<AdminGameTracker />} />
+              <Route path="games/:configId/:instanceId" element={<AdminInstanceDetail />} />
               <Route path="auctions" element={<AdminAuctions />} />
               <Route path="auctions/create" element={<AdminCreateAuction />} />
               <Route path="auctions/:id" element={<AdminAuctionDetail />} />
