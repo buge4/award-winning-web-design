@@ -16,6 +16,8 @@ interface KpiData {
   bids24h: number;
   auctionRevenue: number;
   prizesPaid: number;
+  engineStatus: string;
+  engineLatency: number | null;
 }
 
 interface ActivityItem {
@@ -33,9 +35,11 @@ const AdminDashboard = () => {
   const [kpis, setKpis] = useState<KpiData>({
     totalPlayers: 0, playersToday: 0, totalRevenue: 0, totalBurned: 0,
     activeAuctions: 0, jackpotPool: 0, bids24h: 0, auctionRevenue: 0, prizesPaid: 0,
+    engineStatus: '...', engineLatency: null,
   });
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [playerData, setPlayerData] = useState<any[]>([]);
+  const [burnData, setBurnData] = useState<any[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [auctionSummary, setAuctionSummary] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +48,7 @@ const AdminDashboard = () => {
 
   const loadAll = async () => {
     setLoading(true);
-    await Promise.all([loadKpis(), loadRevenueChart(), loadPlayerChart(), loadActivity(), loadAuctionSummary()]);
+    await Promise.all([loadKpis(), loadRevenueChart(), loadPlayerChart(), loadBurnChart(), loadActivity(), loadAuctionSummary()]);
     setLoading(false);
   };
 
@@ -68,6 +72,17 @@ const AdminDashboard = () => {
         jackpotPool = Number(json?.prize_pool ?? json?.current_balance ?? 0);
       }
     } catch { /* fallback */ }
+
+    // Engine health check
+    let engineStatus = '❌ Offline';
+    let engineLatency: number | null = null;
+    try {
+      const t0 = performance.now();
+      const healthRes = await fetch('http://89.167.102.46:3000/health', { signal: AbortSignal.timeout(5000) });
+      engineLatency = Math.round(performance.now() - t0);
+      if (healthRes.ok) engineStatus = '✅ Healthy';
+      else engineStatus = '⚠️ Degraded';
+    } catch { engineStatus = '❌ Offline'; }
 
     const [playersRes, playersTodayRes, revenueRes, activeRes] = await Promise.all([
       supabase.from('users').select('id', { count: 'exact', head: true }),
@@ -98,6 +113,8 @@ const AdminDashboard = () => {
       bids24h: bids24h ?? 0,
       auctionRevenue: totalRevenue,
       prizesPaid: 0,
+      engineStatus,
+      engineLatency,
     });
   };
 
