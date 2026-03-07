@@ -8,10 +8,11 @@ interface Notification {
   id: string;
   type: string;
   title: string;
-  message: string;
+  body: string;
   link: string | null;
-  is_read: boolean;
+  read: boolean;
   created_at: string;
+  metadata: Record<string, unknown> | null;
 }
 
 const typeIcons: Record<string, string> = {
@@ -52,7 +53,7 @@ const NotificationBell = () => {
           .from('notifications')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id)
-          .eq('is_read', false),
+          .eq('read', false),
         supabase
           .from('notifications')
           .select('*')
@@ -75,7 +76,8 @@ const NotificationBell = () => {
         table: 'notifications',
         filter: `user_id=eq.${user.id}`,
       }, (payload) => {
-        setNotifications(prev => [payload.new as Notification, ...prev.slice(0, 9)]);
+        const newNotif = payload.new as Notification;
+        setNotifications(prev => [newNotif, ...prev.slice(0, 9)]);
         setUnreadCount(prev => prev + 1);
       })
       .subscribe();
@@ -87,11 +89,11 @@ const NotificationBell = () => {
     if (!user) return;
     await supabase
       .from('notifications')
-      .update({ is_read: true })
+      .update({ read: true })
       .eq('user_id', user.id)
-      .eq('is_read', false);
+      .eq('read', false);
     setUnreadCount(0);
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
   const formatTime = (dateStr: string) => {
@@ -154,7 +156,7 @@ const NotificationBell = () => {
                     <div
                       key={n.id}
                       className={`px-4 py-3 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer ${
-                        !n.is_read ? 'bg-primary/[0.03]' : ''
+                        !n.read ? 'bg-primary/[0.03]' : ''
                       }`}
                       onClick={() => setOpen(false)}
                     >
@@ -162,10 +164,10 @@ const NotificationBell = () => {
                         <span className="text-base mt-0.5">{typeIcons[n.type] ?? '📬'}</span>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium leading-snug">{n.title}</div>
-                          <div className="text-xs text-muted-foreground mt-0.5 truncate">{n.message}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5 truncate">{n.body}</div>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] text-muted-foreground">{formatTime(n.created_at)}</span>
-                            {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                            {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
                           </div>
                         </div>
                       </div>
