@@ -628,6 +628,17 @@ const AuctionDetail = () => {
           </div>
         </div>
 
+        {/* ═══════ FUND BREAKDOWN (resolved only) ═══════ */}
+        {isResolved && (
+          <div className="mt-8">
+            <FundBreakdownResults
+              instanceId={id ?? ''}
+              totalCollected={auction.totalBidFees ?? auction.prizePool}
+              prizePool={auction.prizePool}
+            />
+          </div>
+        )}
+
         {/* ═══════ FULL RESULTS (resolved only) ═══════ */}
         {isResolved && resultsData && (
           <div className="mt-8">
