@@ -61,7 +61,7 @@ const RoundCarousel = () => {
       }
 
       // Add future rounds if needed
-      const totalNeeded = Math.max(mapped.length + 4, 9);
+      const totalNeeded = Math.min(Math.max(mapped.length + 3, 7), 7);
       while (mapped.length < totalNeeded) {
         mapped.push({
           week: mapped.length + 1,
@@ -161,7 +161,6 @@ const RoundCarousel = () => {
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">Resolved</span>
               </div>
 
-              {/* Drawn Numbers */}
               {selectedRound.drawnNumbers && selectedRound.drawnNumbers.length > 0 && (
                 <div className="flex gap-2 mb-3 justify-center">
                   {selectedRound.drawnNumbers.map((num, i) => (
@@ -192,19 +191,6 @@ const RoundCarousel = () => {
                 </Link>
               )}
             </div>
-          ) : selectedRound.status === 'live' ? (
-            <div className="bg-gradient-to-r from-pngwin-purple/5 via-card to-pngwin-purple/5 border border-pngwin-purple/30 rounded-xl p-5 text-center">
-              <div className="text-xs text-pngwin-purple uppercase tracking-[3px] font-bold mb-1">● Currently Live</div>
-              <div className="font-mono text-3xl font-bold text-primary mb-1">
-                {selectedRound.prizePool.toLocaleString()} <span className="text-sm text-muted-foreground">PNGWIN</span>
-              </div>
-              <Link
-                to={`/auction/${selectedRound.instanceId}`}
-                className="inline-block mt-3 px-8 py-2.5 bg-pngwin-purple text-primary-foreground font-display font-bold text-xs tracking-wider rounded-lg hover:bg-pngwin-purple/90 transition-colors"
-              >
-                Place Your Bid →
-              </Link>
-            </div>
           ) : selectedRound.status === 'next' ? (
             <div className="bg-gold-subtle border border-primary/20 rounded-xl p-5 text-center">
               <div className="text-xs text-primary uppercase tracking-[3px] font-bold mb-1">Up Next</div>
@@ -231,8 +217,6 @@ function generateMockRounds(): JackpotRound[] {
     { week: 5, instanceId: 'mock-w5', status: 'live', prizePool: 150000 },
     { week: 6, instanceId: 'mock-w6', status: 'next', prizePool: 0 },
     { week: 7, instanceId: 'mock-w7', status: 'upcoming', prizePool: 0 },
-    { week: 8, instanceId: 'mock-w8', status: 'upcoming', prizePool: 0 },
-    { week: 9, instanceId: 'mock-w9', status: 'upcoming', prizePool: 0 },
   ];
 }
 
