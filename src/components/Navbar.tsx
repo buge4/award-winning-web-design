@@ -19,7 +19,6 @@ const navLinks = [
 
 const Navbar = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
@@ -34,14 +33,6 @@ const Navbar = () => {
       .single()
       .then(({ data }) => { if (data) setBalance(data.balance); });
   }, [user]);
-
-  const username = user?.email?.split('@')[0] ?? null;
-  const initials = username ? username.slice(0, 2).toUpperCase() : '??';
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/signin');
-  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 bg-background/92 backdrop-blur-xl border-b border-border">
