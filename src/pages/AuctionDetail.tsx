@@ -225,6 +225,9 @@ const AuctionDetail = () => {
           ← Back to Auctions
         </Link>
 
+        {/* ═══════ SPECIAL OFFER FLOATING BANNER ═══════ */}
+        {isActive && <SpecialOfferBanner instanceId={id ?? ''} />}
+
         {/* ═══════ INSTANCE NAVIGATION ═══════ */}
         {configId && id && (
           <InstanceNavigation currentInstanceId={id} configId={configId} configName={configName} />
