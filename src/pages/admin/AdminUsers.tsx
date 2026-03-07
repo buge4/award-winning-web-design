@@ -236,11 +236,17 @@ const AdminUsers = () => {
                 <span className="text-[10px] text-muted-foreground">Since {new Date(u.created_at).toLocaleDateString()}</span>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button onClick={() => setCreditModal({ userId: selectedUser.user_id, username: u.username ?? 'user' })}
                 className="text-xs text-ice hover:text-ice/80 px-3 py-1.5 border border-ice/20 rounded-lg">💰 Credit/Debit</button>
               <button onClick={() => setSponsorModal({ userId: selectedUser.user_id, username: u.username ?? 'user', currentSponsor: sponsorUsername })}
                 className="text-xs text-pngwin-orange hover:text-pngwin-orange/80 px-3 py-1.5 border border-pngwin-orange/20 rounded-lg">🔄 Change Sponsor</button>
+              <button onClick={() => { setFreeBidsModal({ userId: selectedUser.user_id, username: u.username ?? 'user' }); loadActiveAuctions(); }}
+                className="text-xs text-pngwin-green hover:text-pngwin-green/80 px-3 py-1.5 border border-pngwin-green/20 rounded-lg">🎁 Free Bids</button>
+              <button onClick={() => setBanModal({ userId: selectedUser.user_id, username: u.username ?? 'user', action: 'suspend' })}
+                className="text-xs text-pngwin-purple hover:text-pngwin-purple/80 px-3 py-1.5 border border-pngwin-purple/20 rounded-lg">⏸ Suspend</button>
+              <button onClick={() => setBanModal({ userId: selectedUser.user_id, username: u.username ?? 'user', action: 'ban' })}
+                className="text-xs text-pngwin-red hover:text-pngwin-red/80 px-3 py-1.5 border border-pngwin-red/20 rounded-lg">🚫 Ban</button>
             </div>
           </div>
           {u.referral_code && (
