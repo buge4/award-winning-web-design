@@ -358,12 +358,12 @@ const AuctionDetail = () => {
               <div className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Bid Range</div>
               <div className="flex items-center justify-center gap-3">
                 <div className="text-center">
-                  <div className="font-mono text-lg font-bold text-pngwin-green">{minBid.toFixed(2)}</div>
+                  <div className="font-mono text-lg font-bold text-pngwin-green">{minBid.toFixed(bidDecimals)}</div>
                   <div className="text-[9px] text-muted-foreground">MIN</div>
                 </div>
                 <div className="text-muted-foreground">—</div>
                 <div className="text-center">
-                  <div className="font-mono text-lg font-bold text-primary">{maxBid.toFixed(2)}</div>
+                  <div className="font-mono text-lg font-bold text-primary">{maxBid.toFixed(bidDecimals)}</div>
                   <div className="text-[9px] text-muted-foreground">MAX</div>
                 </div>
               </div>
