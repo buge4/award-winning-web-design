@@ -97,6 +97,9 @@ const App = () => (
             {/* Admin routes */}
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
+              <Route path="games" element={<AdminGames />} />
+              <Route path="games/:configId" element={<AdminGameTracker />} />
+              <Route path="games/:configId/:instanceId" element={<AdminInstanceDetail />} />
               <Route path="auctions" element={<AdminAuctions />} />
               <Route path="auctions/create" element={<AdminCreateAuction />} />
               <Route path="auctions/:id" element={<AdminAuctionDetail />} />
