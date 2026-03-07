@@ -32,12 +32,25 @@ const CryptoAuctionCards = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from('auction_instances')
-        .select('*, auction_configs(*)')
-        .in('status', ['accumulating', 'hot_mode', 'grace_period'])
-        .order('created_at', { ascending: false });
+    const loadData = async () => {
+      let data: any[] | null = null;
+      try {
+        const res = await fetch('http://89.167.102.46:3000/api/dashboard/auctions');
+        if (res.ok) {
+          const json = await res.json();
+          data = (json ?? []).filter((r: any) =>
+            ['accumulating', 'scheduled', 'hot_mode', 'grace_period'].includes(r.status)
+          );
+        }
+      } catch { /* fallback */ }
+      if (!data) {
+        const resp = await supabase
+          .from('auction_instances')
+          .select('*, auction_configs(*)')
+          .in('status', ['accumulating', 'scheduled', 'hot_mode', 'grace_period'])
+          .order('created_at', { ascending: false });
+        data = resp.data;
+      }
 
       if (data) {
         const crypto = data.filter((r: any) => {
@@ -66,7 +79,7 @@ const CryptoAuctionCards = () => {
       }
       setLoading(false);
     };
-    fetch();
+    loadData();
   }, []);
 
   if (loading || auctions.length === 0) return null;

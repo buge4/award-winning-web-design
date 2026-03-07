@@ -9,10 +9,12 @@ const NAV_ITEMS = [
   { path: '/admin/auctions', label: 'Auctions', icon: '📋' },
   { path: '/admin/auctions/create', label: 'Create Auction', icon: '➕' },
   { path: '/admin/users', label: 'Users', icon: '👥' },
-  { path: '/admin/finance', label: 'Finance', icon: '💰' },
-  { path: '/admin/claude', label: 'Claude', icon: '🧠' },
-  { path: '/admin/accounting', label: 'Accounting', icon: '📊' },
+  { path: '/admin/accounting', label: 'Accounting', icon: '💰' },
+  { path: '/admin/finance', label: 'Finance', icon: '📈' },
+  { path: '/admin/notifications', label: 'Notifications', icon: '🔔' },
+  { path: '/admin/badges', label: 'Badges', icon: '🏆' },
   { path: '/admin/airdrops', label: 'Airdrops', icon: '🎟' },
+  { path: '/admin/claude', label: 'Claude', icon: '🧠' },
   { path: '/admin/settings', label: 'Settings', icon: '⚙️' },
 ];
 
