@@ -10,6 +10,11 @@ import InstanceNavigation from '@/components/auction/InstanceNavigation';
 import PastAuctionHistory from '@/components/auction/PastAuctionHistory';
 import WinnerBanner from '@/components/auction/WinnerBanner';
 import PrizeBreakdown from '@/components/auction/PrizeBreakdown';
+import FreeBidWallet from '@/components/auction/FreeBidWallet';
+import EarlyBirdBanner from '@/components/auction/EarlyBirdBanner';
+import SpecialOfferBanner from '@/components/auction/SpecialOfferBanner';
+import BulkBuySelector from '@/components/auction/BulkBuySelector';
+import FundBreakdownResults from '@/components/auction/FundBreakdownResults';
 import { toast } from 'sonner';
 import { useMyBids, usePlaceBid, useAuctionDetail, useAuctionLeaderboard } from '@/hooks/useAuctions';
 import { useAuctionResults } from '@/hooks/useAuctionResults';
@@ -88,8 +93,10 @@ const AuctionDetail = () => {
   const isJackpot = auction.type === 'jackpot';
   const isBlind = auction.visibility === 'blind' || auction.type === 'blind_count' || auction.type === 'blind_timed';
   const minBid = auction.minBidValue ?? 0.01;
-  const maxBid = auction.maxBidValue ?? 99.99;
+  const maxBid = auction.maxBidValue ?? (isJackpot ? 99.999 : 99.99);
+  const bidDecimals = isJackpot ? 3 : 2;
   const isActive = ['accumulating', 'hot_mode', 'grace_period'].includes(auction.status);
+  const [selectedBundle, setSelectedBundle] = useState<{ totalBids: number; paidBids: number }>({ totalBids: 1, paidBids: 1 });
 
   const handleBid = async (value: string) => {
     if (!user) { toast.error('Sign in to place a bid'); return; }
@@ -217,6 +224,9 @@ const AuctionDetail = () => {
         <Link to="/auctions" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
           ← Back to Auctions
         </Link>
+
+        {/* ═══════ SPECIAL OFFER FLOATING BANNER ═══════ */}
+        {isActive && <SpecialOfferBanner instanceId={id ?? ''} />}
 
         {/* ═══════ INSTANCE NAVIGATION ═══════ */}
         {configId && id && (
@@ -364,10 +374,32 @@ const AuctionDetail = () => {
               </div>
             </div>
 
+            {/* Free Bid Wallet */}
+            {isActive && <FreeBidWallet instanceId={id ?? ''} currentPhase={auction.status} />}
+
+            {/* Early Bird Banner */}
+            {isActive && <EarlyBirdBanner instanceId={id ?? ''} />}
+
+            {/* Bulk Buy */}
+            {isActive && auction.bidCost > 0 && (
+              <div className="bg-card border border-border rounded-lg p-5">
+                <BulkBuySelector
+                  bidCost={auction.bidCost}
+                  onSelect={(totalBids, paidBids) => setSelectedBundle({ totalBids, paidBids })}
+                />
+              </div>
+            )}
+
             {/* Bid Input */}
             {isActive && (
               <div className="bg-card border border-border rounded-lg p-6">
-                <BidInput onSubmit={handleBid} bidCost={auction.bidCost} minValue={minBid} maxValue={maxBid} />
+                <BidInput
+                  onSubmit={handleBid}
+                  bidCost={auction.bidCost}
+                  minValue={minBid}
+                  maxValue={maxBid}
+                  decimals={bidDecimals}
+                />
               </div>
             )}
 
@@ -595,6 +627,17 @@ const AuctionDetail = () => {
             )}
           </div>
         </div>
+
+        {/* ═══════ FUND BREAKDOWN (resolved only) ═══════ */}
+        {isResolved && (
+          <div className="mt-8">
+            <FundBreakdownResults
+              instanceId={id ?? ''}
+              totalCollected={auction.totalBidFees ?? auction.prizePool}
+              prizePool={auction.prizePool}
+            />
+          </div>
+        )}
 
         {/* ═══════ FULL RESULTS (resolved only) ═══════ */}
         {isResolved && resultsData && (
