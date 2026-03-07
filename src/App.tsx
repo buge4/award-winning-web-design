@@ -47,6 +47,8 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import AdminClaude from "./pages/admin/AdminClaude";
 import AdminAccounting from "./pages/admin/AdminAccounting";
 import AdminAirdrops from "./pages/admin/AdminAirdrops";
+import AdminNotifications from "./pages/admin/AdminNotifications";
+import AdminBadges from "./pages/admin/AdminBadges";
 
 const queryClient = new QueryClient();
 
@@ -100,6 +102,8 @@ const App = () => (
               <Route path="claude" element={<AdminClaude />} />
               <Route path="accounting" element={<AdminAccounting />} />
               <Route path="airdrops" element={<AdminAirdrops />} />
+              <Route path="notifications" element={<AdminNotifications />} />
+              <Route path="badges" element={<AdminBadges />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>
             
