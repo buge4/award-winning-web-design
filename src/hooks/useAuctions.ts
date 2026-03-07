@@ -56,7 +56,7 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     bidCost: Number(config.bid_fee ?? 10),
     uniqueBids: Number(row.unique_bidders ?? 0),
     burnedBids: Number(row.burned_amount ?? 0),
-    icon: type === 'jackpot' ? '🎰' : type === 'free' ? '🎁' : type === 'blind_count' || type === 'blind_timed' ? '🙈' : type === 'timed' ? '⏱️' : '🎯',
+    icon: (type === 'jackpot' || String(config.prize_type) === 'jackpot') ? '🎰' : type === 'free' ? '🎁' : type === 'blind_count' || type === 'blind_timed' ? '🙈' : type === 'timed' ? '⏱️' : '🎯',
     currency: String(config.currency ?? 'PNGWIN'),
     // Compute timeRemaining from DB timestamps
     timeRemaining: (() => {
@@ -78,8 +78,8 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     bidTarget: config.total_bids_to_hot ? Number(config.total_bids_to_hot) : undefined,
     rolloverWeek: row.rollover_week ? Number(row.rollover_week) : undefined,
     rolloverHistory: row.rollover_history ? (row.rollover_history as number[]) : undefined,
-    minBidValue: config.min_bid_value ? Number(config.min_bid_value) : (type === 'jackpot' ? 0.001 : 0.01),
-    maxBidValue: config.max_bid_value ? Number(config.max_bid_value) : (type === 'jackpot' ? 99.999 : 99.99),
+    minBidValue: config.min_bid_value ? Number(config.min_bid_value) : (type === 'jackpot' || String(config.prize_type) === 'jackpot' ? 0.001 : 0.01),
+    maxBidValue: config.max_bid_value ? Number(config.max_bid_value) : (type === 'jackpot' || String(config.prize_type) === 'jackpot' ? 99.999 : 99.99),
     hotModeEndsAt: row.hot_mode_ends_at ? String(row.hot_mode_ends_at) : undefined,
     totalBidFees: Number(row.total_bid_fees ?? 0),
     visibility: (config.visibility as Auction['visibility']) ?? 'open',
@@ -89,6 +89,7 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     winningDistance: row.winning_distance != null ? Number(row.winning_distance) : undefined,
     totalBidsToClose: config.total_bids_to_close ? Number(config.total_bids_to_close) : undefined,
     scheduledEnd: row.scheduled_end ? String(row.scheduled_end) : undefined,
+    prizeType: config.prize_type ? String(config.prize_type) : undefined,
   };
 };
 

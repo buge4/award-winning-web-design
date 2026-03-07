@@ -29,6 +29,7 @@ export interface Auction {
   winningDistance?: number;
   totalBidsToClose?: number;
   scheduledEnd?: string;
+  prizeType?: string;
 }
 
 export interface Bid {

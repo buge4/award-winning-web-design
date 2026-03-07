@@ -113,9 +113,9 @@ const AuctionDetail = () => {
     }
   }, [auction.status]);
 
-  const isJackpot = auction.type === 'jackpot';
+  const isJackpot = auction.type === 'jackpot' || (auction as any).prizeType === 'jackpot';
   const isBlind = auction.visibility === 'blind' || auction.type === 'blind_count' || auction.type === 'blind_timed';
-  const minBid = auction.minBidValue ?? 0.01;
+  const minBid = auction.minBidValue ?? (isJackpot ? 0.001 : 0.01);
   const maxBid = auction.maxBidValue ?? (isJackpot ? 99.999 : 99.99);
   const bidDecimals = isJackpot ? 3 : 2;
   const isActive = ['accumulating', 'hot_mode', 'grace_period'].includes(auction.status);
