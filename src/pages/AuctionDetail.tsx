@@ -638,6 +638,9 @@ const AuctionDetail = () => {
                 </div>
               </div>
             )}
+
+            {/* Previous Draw Results (jackpot only) */}
+            {isJackpot && <PreviousDrawResults />}
           </div>
         </div>
 
