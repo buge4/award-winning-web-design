@@ -153,6 +153,42 @@ const AdminUsers = () => {
     setSponsorSubmitting(false);
   };
 
+  const handleBanSuspend = async () => {
+    if (!banModal) return;
+    const keyword = banModal.action === 'ban' ? 'BAN' : 'SUSPEND';
+    if (banConfirm !== keyword) { toast.error(`Type "${keyword}" to confirm`); return; }
+    setBanSubmitting(true);
+    const status = banModal.action === 'ban' ? 'banned' : 'suspended';
+    const { error } = await supabase.from('users').update({ status }).eq('id', banModal.userId);
+    if (error) toast.error(error.message);
+    else { toast.success(`User @${banModal.username} ${status}!`); setBanModal(null); setBanConfirm(''); fetchUsers(); }
+    setBanSubmitting(false);
+  };
+
+  const handleFreeBids = async () => {
+    if (!freeBidsModal || !freeBidsInstanceId || !freeBidsCount) return;
+    setFreeBidsSubmitting(true);
+    const { error } = await supabase.from('auction_free_bids').insert({
+      instance_id: freeBidsInstanceId,
+      user_id: freeBidsModal.userId,
+      granted_by: user?.id,
+      total_granted: parseInt(freeBidsCount),
+      used: 0,
+      remaining: parseInt(freeBidsCount),
+      hot_mode_only: freeBidsHotOnly,
+    });
+    if (error) toast.error(error.message);
+    else { toast.success(`${freeBidsCount} free bids granted!`); setFreeBidsModal(null); setFreeBidsCount(''); setFreeBidsInstanceId(''); }
+    setFreeBidsSubmitting(false);
+  };
+
+  const loadActiveAuctions = async () => {
+    const { data } = await supabase.from('auction_instances')
+      .select('id, auction_configs(name)')
+      .in('status', ['accumulating', 'hot_mode', 'grace_period']);
+    setActiveAuctions(data ?? []);
+  };
+
   const filtered = useMemo(() => {
     let list = users;
     if (search) {
