@@ -82,7 +82,7 @@ const JackpotTopBanner = ({ prizePool, weekNumber, scheduledEnd, bidCount, playe
             >
               <div className="text-sm">{p.icon}</div>
               <div className="text-[9px] text-muted-foreground">{p.name}</div>
-              <div className={`font-mono text-sm font-bold ${p.highlight ? 'text-primary' : 'text-primary'}`}>
+              <div className={`font-mono text-base font-bold ${p.highlight ? 'text-primary' : 'text-primary'}`}>
                 {Math.floor(prizePool * p.pct).toLocaleString()}
               </div>
               {p.rolls && (
