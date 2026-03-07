@@ -35,12 +35,28 @@ export interface LobbyBid {
 }
 
 const fetchAuctionByConfigName = async (nameLike: string): Promise<LobbyAuction | null> => {
-  // First get the active instance
-  const { data: instances, error } = await supabase
-    .from('auction_instances')
-    .select('*, auction_configs(*)')
-    .in('status', ['accumulating', 'hot_mode', 'grace_period'])
-    .order('created_at', { ascending: false });
+  // Try fast API first
+  let instances: any[] | null = null;
+  try {
+    const res = await fetch('http://89.167.102.46:3000/api/dashboard/auctions');
+    if (res.ok) {
+      const json = await res.json();
+      instances = (json ?? []).filter((r: any) =>
+        ['accumulating', 'scheduled', 'hot_mode', 'grace_period'].includes(r.status)
+      );
+    }
+  } catch { /* fallback */ }
+
+  // Fallback to Supabase
+  if (!instances) {
+    const { data, error } = await supabase
+      .from('auction_instances')
+      .select('*, auction_configs(*)')
+      .in('status', ['accumulating', 'scheduled', 'hot_mode', 'grace_period'])
+      .order('created_at', { ascending: false });
+    if (error) return null;
+    instances = data;
+  }
 
   if (error || !instances?.length) return null;
 
@@ -97,11 +113,24 @@ export const useHeroJackpot = () => {
 
   useEffect(() => {
     const fetch = async () => {
-      const { data: instances } = await supabase
-        .from('auction_instances')
-        .select('*, auction_configs(*)')
-        .in('status', ['accumulating', 'hot_mode', 'grace_period'])
-        .order('created_at', { ascending: false });
+      let instances: any[] | null = null;
+      try {
+        const res = await fetch('http://89.167.102.46:3000/api/dashboard/auctions');
+        if (res.ok) {
+          const json = await res.json();
+          instances = (json ?? []).filter((r: any) =>
+            ['accumulating', 'scheduled', 'hot_mode', 'grace_period'].includes(r.status)
+          );
+        }
+      } catch { /* fallback */ }
+      if (!instances) {
+        const { data } = await supabase
+          .from('auction_instances')
+          .select('*, auction_configs(*)')
+          .in('status', ['accumulating', 'scheduled', 'hot_mode', 'grace_period'])
+          .order('created_at', { ascending: false });
+        instances = data;
+      }
 
       if (instances?.length) {
         // Prefer PNGWIN jackpot, then any jackpot
