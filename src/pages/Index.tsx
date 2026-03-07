@@ -11,13 +11,7 @@ import CryptoAuctionCards from '@/components/lobby/CryptoAuctionCards';
 import { useHeroJackpot, useFeaturedAuction } from '@/hooks/useLobbyData';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const FALLBACK_ROLLOVER = [
-  { week: 1, amount: 25000, isCurrent: false },
-  { week: 2, amount: 50000, isCurrent: false },
-  { week: 3, amount: 75000, isCurrent: false },
-  { week: 4, amount: 110000, isCurrent: false },
-  { week: 5, amount: 150000, isCurrent: true },
-];
+// Rollover history removed — carousel lives inside jackpot page now
 
 const getNextSaturday = () => {
   const now = new Date();
