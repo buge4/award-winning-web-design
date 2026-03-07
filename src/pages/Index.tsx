@@ -89,7 +89,7 @@ const Index = () => {
         status={jackpot?.status === 'hot_mode' ? 'LIVE' : jackpot ? 'LIVE' : 'UPCOMING'}
         bidFee={jackpot?.bidFee ?? 0}
         endsAt={jackpot?.scheduledEnd ?? getNextSaturday()}
-        rolloverHistory={FALLBACK_ROLLOVER}
+        jackpotInstanceId={jackpot?.id}
       />
 
       {/* Live Ticker */}
