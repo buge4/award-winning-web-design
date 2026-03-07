@@ -58,7 +58,7 @@ const fetchAuctionByConfigName = async (nameLike: string): Promise<LobbyAuction 
     instances = data;
   }
 
-  if (error || !instances?.length) return null;
+  if (!instances?.length) return null;
 
   // Filter by config name
   const match = instances.find((row: any) => {
@@ -187,7 +187,7 @@ export const useHeroJackpot = () => {
       }
       setLoading(false);
     };
-    fetch();
+    loadData();
   }, []);
 
   return { data, loading };

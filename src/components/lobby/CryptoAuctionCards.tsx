@@ -79,7 +79,7 @@ const CryptoAuctionCards = () => {
       }
       setLoading(false);
     };
-    fetch();
+    loadData();
   }, []);
 
   if (loading || auctions.length === 0) return null;
