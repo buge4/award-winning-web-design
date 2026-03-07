@@ -374,10 +374,32 @@ const AuctionDetail = () => {
               </div>
             </div>
 
+            {/* Free Bid Wallet */}
+            {isActive && <FreeBidWallet instanceId={id ?? ''} currentPhase={auction.status} />}
+
+            {/* Early Bird Banner */}
+            {isActive && <EarlyBirdBanner instanceId={id ?? ''} />}
+
+            {/* Bulk Buy */}
+            {isActive && auction.bidCost > 0 && (
+              <div className="bg-card border border-border rounded-lg p-5">
+                <BulkBuySelector
+                  bidCost={auction.bidCost}
+                  onSelect={(totalBids, paidBids) => setSelectedBundle({ totalBids, paidBids })}
+                />
+              </div>
+            )}
+
             {/* Bid Input */}
             {isActive && (
               <div className="bg-card border border-border rounded-lg p-6">
-                <BidInput onSubmit={handleBid} bidCost={auction.bidCost} minValue={minBid} maxValue={maxBid} />
+                <BidInput
+                  onSubmit={handleBid}
+                  bidCost={auction.bidCost}
+                  minValue={minBid}
+                  maxValue={maxBid}
+                  decimals={bidDecimals}
+                />
               </div>
             )}
 
