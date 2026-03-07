@@ -56,7 +56,7 @@ const mapRow = (row: Record<string, unknown>): Auction => {
     bidCost: Number(config.bid_fee ?? 10),
     uniqueBids: Number(row.unique_bidders ?? 0),
     burnedBids: Number(row.burned_amount ?? 0),
-    icon: type === 'jackpot' ? '🎰' : type === 'free' ? '🎁' : type === 'blind_count' || type === 'blind_timed' ? '🙈' : type === 'timed' ? '⏱️' : '🎯',
+    icon: (type === 'jackpot' || String(config.prize_type) === 'jackpot') ? '🎰' : type === 'free' ? '🎁' : type === 'blind_count' || type === 'blind_timed' ? '🙈' : type === 'timed' ? '⏱️' : '🎯',
     currency: String(config.currency ?? 'PNGWIN'),
     // Compute timeRemaining from DB timestamps
     timeRemaining: (() => {
