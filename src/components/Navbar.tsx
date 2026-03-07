@@ -1,8 +1,10 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import ProfileDropdown from './ProfileDropdown';
+import NotificationBell from './NotificationBell';
 
 const navLinks = [
   { path: '/', label: 'Lobby' },
@@ -17,7 +19,6 @@ const navLinks = [
 
 const Navbar = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
@@ -32,14 +33,6 @@ const Navbar = () => {
       .single()
       .then(({ data }) => { if (data) setBalance(data.balance); });
   }, [user]);
-
-  const username = user?.email?.split('@')[0] ?? null;
-  const initials = username ? username.slice(0, 2).toUpperCase() : '??';
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/signin');
-  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 bg-background/92 backdrop-blur-xl border-b border-border">
@@ -70,12 +63,8 @@ const Navbar = () => {
             <Link to="/wallet" className="flex items-center gap-2 bg-gold-subtle border border-gold rounded-full px-3.5 py-1.5 cursor-pointer hover:bg-gold/10 transition-colors">
               <span className="text-primary font-mono text-xs">◆ {balance !== null ? balance.toLocaleString() : '—'}</span>
             </Link>
-            <div className="flex items-center gap-2 cursor-pointer group" onClick={handleSignOut}>
-              <div className="w-8 h-8 rounded-full gradient-ice flex items-center justify-center text-xs font-bold text-background">
-                {initials}
-              </div>
-              <span className="hidden sm:block text-sm text-muted-foreground group-hover:text-foreground transition-colors">@{username}</span>
-            </div>
+            <NotificationBell />
+            <ProfileDropdown />
           </>
         ) : (
           <Link
@@ -119,7 +108,7 @@ const Navbar = () => {
           ))}
           {user ? (
             <button
-              onClick={handleSignOut}
+              onClick={async () => { setMobileOpen(false); await signOut(); }}
               className="block w-full text-left px-4 py-3 rounded-md text-sm font-medium text-pngwin-red"
             >
               Sign Out
