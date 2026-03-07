@@ -108,7 +108,7 @@ const Navbar = () => {
           ))}
           {user ? (
             <button
-              onClick={handleSignOut}
+              onClick={async () => { setMobileOpen(false); await signOut(); }}
               className="block w-full text-left px-4 py-3 rounded-md text-sm font-medium text-pngwin-red"
             >
               Sign Out
